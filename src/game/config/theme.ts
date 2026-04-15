@@ -175,7 +175,7 @@ const DEV_THEME: ThemeDefinition = {
       heading: 'HOW TO SCORE',
       lines: [
         'Press any key or tap the screen while a character is highlighted to earn 10 points.',
-        'Press the exact same character to earn 100 points and keep your run alive longer.',
+        'Press the exact same character to earn 100 points, and smash a crawling bug for +75.',
       ],
     },
     dangerRules: {
@@ -291,7 +291,7 @@ const TRADING_THEME: ThemeDefinition = {
       heading: 'HOW TO SCORE',
       lines: [
         'Press any key or tap while a ticker is highlighted to bank 10 points.',
-        'Hit the exact symbol to bag 100 points and push the setup forward faster.',
+        'Hit the exact symbol to bank 100 points, and smash a crawling dip marker for +75.',
       ],
     },
     dangerRules: {

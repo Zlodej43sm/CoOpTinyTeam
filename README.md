@@ -50,7 +50,7 @@ npm run test    # run unit tests
 Want to add a new game to the platform? See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for the full step-by-step guide.
 
 Contributions are welcome — pull requests are reviewed and merged at the maintainer's discretion.
-All contributions become part of the project under the terms of the [LICENSE](./LICENSE).
+All contributions become part of the project under the terms of the [LICENSE](./LICENSE.md).
 
 ---
 
@@ -72,5 +72,4 @@ All contributions become part of the project under the terms of the [LICENSE](./
 ## 📄 License
 
 Copyright © 2026 CoOpTinyTeam. All rights reserved.
-CoOpTinyTeam is a brand and project by Oleksii Povolotskyi.
-See [LICENSE](./LICENSE) for details.
+See [LICENSE](./LICENSE.md) for details.

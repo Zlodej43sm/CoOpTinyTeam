@@ -21,6 +21,7 @@ export default function BottomGameHud() {
   const pipelineLabel = isKidsArcade ? copy.kidsModeLabel : `${copy.progressLabel} FLOW`
   const levelProgressRatio = footerLevelGoal > 0 ? Math.min(1, footerLevelProgress / footerLevelGoal) : 0
   const timerPercent = Math.max(0, Math.min(1, footerChallengeProgress))
+  const runStatusBonusLabel = theme === 'trading' ? 'Dip = 75' : 'Bug = 75'
   const timerColor =
     timerPercent > 0.5 ? ui.accent
     : timerPercent > 0.25 ? ui.warning
@@ -220,7 +221,7 @@ export default function BottomGameHud() {
             {isKidsArcade ? 'FUN LOOP' : 'RUN STATUS'}
           </div>
           <div style={{ color: ui.text, fontSize: rem(0.42), lineHeight: 1.7, textAlign: 'right' }}>
-            {isKidsArcade ? 'Tap, type, and pop the target.' : `Exact = 100 • Any = 10`}
+            {isKidsArcade ? 'Tap, type, and pop the target.' : `Exact = 100 • Any = 10 • ${runStatusBonusLabel}`}
           </div>
           <div
             style={{

@@ -474,6 +474,7 @@ export class LevelScene extends Container {
     }
 
     if (!bestBug?.squash()) return
+    this.scoring.recordBugSquash()
     this.flashAlpha = Math.max(this.flashAlpha, 0.16)
     this.flashColor = this.themeDef.colors.squashFlash
   }

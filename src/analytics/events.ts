@@ -1,4 +1,5 @@
 import posthog from 'posthog-js'
+import { isPostHogEnabled } from '@/analytics/config'
 import { useGameStore } from '@/store/gameStore'
 import type { GamePhase, GameTheme, StorageMode } from '@/types'
 
@@ -7,11 +8,6 @@ type EventProperties = Record<string, string | number | boolean | null | undefin
 
 const VIEW_EVENT_DEDUPE_MS = 800
 const recentEventKeys = new Map<string, number>()
-
-function hasPostHogKey(): boolean {
-  const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined
-  return typeof window !== 'undefined' && Boolean(key?.trim())
-}
 
 function sanitizeProperties(properties: EventProperties): EventProperties {
   return Object.fromEntries(
@@ -45,7 +41,7 @@ function getSharedProperties(): EventProperties {
 }
 
 function captureEvent(event: string, properties: EventProperties = {}): void {
-  if (!hasPostHogKey()) return
+  if (!isPostHogEnabled()) return
   posthog.capture(event, {
     ...getSharedProperties(),
     ...sanitizeProperties(properties),

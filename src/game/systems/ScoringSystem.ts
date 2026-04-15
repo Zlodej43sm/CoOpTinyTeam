@@ -1,6 +1,8 @@
 import { useGameStore } from '@/store/gameStore'
 import { trackCharAction, trackLevelFailed } from '@/analytics/events'
 
+const AMBIENT_BUG_SQUASH_POINTS = 75
+
 export class ScoringSystem {
   private challengeStartMs = 0
 
@@ -15,6 +17,11 @@ export class ScoringSystem {
     addScore(pts)
     recordAction(exact ? 'match' : 'any')
     trackCharAction({ char, correct: exact, responseTimeMs })
+  }
+
+  recordBugSquash(): void {
+    const { addScore } = useGameStore.getState()
+    addScore(AMBIENT_BUG_SQUASH_POINTS)
   }
 
   recordMiss(char: string): void {

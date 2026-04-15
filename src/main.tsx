@@ -1,21 +1,39 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import posthog from 'posthog-js'
+import { getPostHogKey } from '@/analytics/config'
 import App from './App'
 import './index.css'
+
+const POSTHOG_US_UI_HOST = 'https://app.posthog.com'
+const POSTHOG_US_API_HOST = 'https://us.i.posthog.com'
+const POSTHOG_EU_UI_HOST = 'https://eu.posthog.com'
+const POSTHOG_EU_API_HOST = 'https://eu.i.posthog.com'
 
 function normalizePostHogHost(rawHost: string | undefined): { apiHost?: string; uiHost?: string } {
   const host = (rawHost?.trim() ?? '').replace(/\/+$/, '')
   if (!host) return {}
 
-  if (host === 'https://app.posthog.com') {
-    return { uiHost: host }
+  if (host === POSTHOG_US_UI_HOST) {
+    return { apiHost: POSTHOG_US_API_HOST, uiHost: host }
+  }
+
+  if (host === POSTHOG_EU_UI_HOST) {
+    return { apiHost: POSTHOG_EU_API_HOST, uiHost: host }
+  }
+
+  if (host === POSTHOG_US_API_HOST) {
+    return { apiHost: host, uiHost: POSTHOG_US_UI_HOST }
+  }
+
+  if (host === POSTHOG_EU_API_HOST) {
+    return { apiHost: host, uiHost: POSTHOG_EU_UI_HOST }
   }
 
   return { apiHost: host }
 }
 
-const posthogKey = import.meta.env.VITE_POSTHOG_KEY as string | undefined
+const posthogKey = getPostHogKey()
 if (posthogKey) {
   const { apiHost, uiHost } = normalizePostHogHost(import.meta.env.VITE_POSTHOG_HOST as string | undefined)
 
