@@ -141,7 +141,7 @@ export default function GameHub() {
           maxWidth: '960px',
         }}
       >
-        <div>© 2024 COOPTINYTEAM · ALL RIGHTS RESERVED</div>
+        <div>© 2026 COOPTINYTEAM · ALL RIGHTS RESERVED</div>
         <div style={{ color: ui.accent, opacity: 0.5 }}>MORE GAMES COMING SOON</div>
       </footer>
     </div>

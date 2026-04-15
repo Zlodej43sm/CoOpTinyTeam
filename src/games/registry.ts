@@ -4,7 +4,7 @@
  * Add a new entry here to register your game on the hub landing page.
  * See CONTRIBUTING.md for the full step-by-step guide.
  *
- * Copyright © 2024 CoOpTinyTeam. All rights reserved.
+ * Copyright © 2026 CoOpTinyTeam. All rights reserved.
  * CoOpTinyTeam is a brand and project by Oleksii Povolotskyi (a.povolotskiy@gmail.com).
  */
 

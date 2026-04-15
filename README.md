@@ -71,6 +71,6 @@ All contributions become part of the project under the terms of the [LICENSE](./
 
 ## 📄 License
 
-Copyright © 2024 CoOpTinyTeam. All rights reserved.
+Copyright © 2026 CoOpTinyTeam. All rights reserved.
 CoOpTinyTeam is a brand and project by Oleksii Povolotskyi.
 See [LICENSE](./LICENSE) for details.
