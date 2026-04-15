@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { getThemeDefinition } from '@/game/config/theme'
+import { trackAppLoaded, trackPhaseViewed } from '@/analytics/events'
 import GameHub from '@/components/Hub/GameHub'
 import MainMenu from '@/components/Menu/MainMenu'
 import RulesPage from '@/components/Menu/RulesPage'
@@ -23,6 +25,14 @@ export default function App() {
   const typingGameplayPhase = phase === 'playing' || phase === 'boss'
   const showCanvas = gameplayPhase || phase === 'level-complete'
   const showLeaderboard = phase === 'gameover' || phase === 'victory'
+
+  useEffect(() => {
+    trackAppLoaded()
+  }, [])
+
+  useEffect(() => {
+    trackPhaseViewed(phase)
+  }, [phase, runId])
 
   return (
     <div

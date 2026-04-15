@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { LEVELS } from '@/game/config/levels'
 import { getLevelDisplayName, getThemeDefinition } from '@/game/config/theme'
+import { rem } from '@/ui/typography'
 
 export default function LevelComplete() {
   const level = useGameStore((s) => s.level)
@@ -25,20 +26,33 @@ export default function LevelComplete() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0,0,0,0.82)',
+        background: 'radial-gradient(circle at center, rgba(109, 220, 255, 0.14) 0%, rgba(0, 0, 0, 0.88) 62%)',
         zIndex: 20,
-        gap: '1.2rem',
         fontFamily: '"Press Start 2P", monospace',
       }}
     >
-      <div style={{ fontSize: '1.1rem', color: themeDef.ui.accent, textShadow: `0 0 20px ${themeDef.ui.accent}` }}>
-        {themeDef.copy.levelCompleteTitle}
-      </div>
-      <div style={{ fontSize: '0.55rem', color: themeDef.ui.secondary }}>
-        {getLevelDisplayName(theme, level)}
-      </div>
-      <div style={{ fontSize: '0.45rem', color: themeDef.ui.muted, marginTop: '0.5rem' }}>
-        {config?.isBoss ? themeDef.copy.levelCompleteBossLoading : themeDef.copy.levelCompleteNextLoading}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem',
+          padding: '2rem 2.2rem',
+          borderRadius: 28,
+          border: `2px solid ${themeDef.ui.panelBorder}`,
+          background: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, ${themeDef.ui.controlBg} 100%)`,
+          boxShadow: themeDef.ui.panelShadow,
+        }}
+      >
+        <div style={{ fontSize: rem(1.1), color: themeDef.ui.accent, textShadow: `0 0 20px ${themeDef.ui.accent}` }}>
+          {themeDef.copy.levelCompleteTitle}
+        </div>
+        <div style={{ fontSize: rem(0.55), color: themeDef.ui.secondary }}>
+          {getLevelDisplayName(theme, level)}
+        </div>
+        <div style={{ fontSize: rem(0.45), color: themeDef.ui.muted, marginTop: '0.5rem' }}>
+          {config?.isBoss ? themeDef.copy.levelCompleteBossLoading : themeDef.copy.levelCompleteNextLoading}
+        </div>
       </div>
     </div>
   )

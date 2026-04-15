@@ -1,0 +1,23 @@
+{
+  "name": "CoOp Tiny Team",
+  "short_name": "Tiny Team",
+  "description": "Haunted IDE browser games for parent developers, toddlers, and tiny coders.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c1826",
+  "theme_color": "#0c1826",
+  "icons": [
+    {
+      "src": "/assets/logo.mini.webp",
+      "sizes": "335x357",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/logo.png",
+      "sizes": "2816x1536",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -246,6 +246,10 @@ VITE_SUPABASE_ANON_KEY=
 # Posthog
 VITE_POSTHOG_KEY=
 VITE_POSTHOG_HOST=https://app.posthog.com
+
+# Tip jar — Stripe Payment Link (Apple Pay / Google Pay / Card / BLIK)
+# Leave empty to hide the button. Use test_ link locally, live link in prod.
+VITE_TIP_URL=
 ```
 
 ---
@@ -268,7 +272,17 @@ npm run build      # production build → dist/
 2. Connect repo in Cloudflare Pages dashboard
 3. Build command: `npm run build`
 4. Output dir: `dist`
-5. Add env vars in Cloudflare dashboard (Supabase + Posthog keys)
+5. Add env vars in Cloudflare Pages dashboard → Settings → Environment Variables:
+   - `VITE_TIP_URL` — live Stripe Payment Link (`https://buy.stripe.com/…`)
+   - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+   - `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`
+
+**Or deploy via GitHub Actions** (`.github/workflows/deploy.yml`):
+- Required secrets (Settings → Secrets → Actions):
+  - `CLOUDFLARE_API_TOKEN` — token with Cloudflare Pages deploy permission
+  - `CLOUDFLARE_ACCOUNT_ID`
+  - `VITE_TIP_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`
+- Required variable: `CLOUDFLARE_PAGES_PROJECT` — your Pages project name
 
 Custom domain: set in Cloudflare Pages → Custom Domains → `cooptinyteam.dev`
 SSL is automatic.

@@ -2,6 +2,7 @@ import { BOTTOM_HUD_HEIGHT, FOOTER_PANEL_HEIGHT, FOOTER_PIPELINE_HEIGHT } from '
 import { LEVELS } from '@/game/config/levels'
 import { getLevelDisplayName, getThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
+import { rem } from '@/ui/typography'
 
 export default function BottomGameHud() {
   const phase = useGameStore((s) => s.phase)
@@ -46,13 +47,13 @@ export default function BottomGameHud() {
           gridTemplateColumns: 'minmax(128px, 176px) minmax(0, 1fr) minmax(170px, 220px)',
           alignItems: 'center',
           gap: '0.8rem',
-          background: `linear-gradient(180deg, ${alpha(ui.controlBg, 0.9)} 0%, ${alpha(ui.controlBg, 0.76)} 100%)`,
+          background: `linear-gradient(180deg, ${alpha(ui.warning, 0.12)} 0%, ${alpha(ui.secondary, 0.08)} 40%, ${alpha(ui.controlBg, 0.9)} 100%)`,
           borderTop: `1px solid ${alpha(ui.subtleBorder, 0.95)}`,
           borderBottom: `1px solid ${alpha(ui.secondary, 0.24)}`,
           boxShadow: `0 -12px 28px ${alpha('#000000', 0.4)}`,
         }}
       >
-        <div style={{ color: ui.muted, fontSize: '0.35rem', letterSpacing: '0.14em' }}>{pipelineLabel}</div>
+        <div style={{ color: ui.muted, fontSize: rem(0.35), letterSpacing: '0.14em' }}>{pipelineLabel}</div>
 
         {isKidsArcade ? (
           <div
@@ -65,7 +66,9 @@ export default function BottomGameHud() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '0.36rem',
+              borderRadius: 999,
+              boxShadow: `0 0 18px ${alpha(ui.warning, 0.18)}`,
+              fontSize: rem(0.36),
               letterSpacing: '0.12em',
             }}
           >
@@ -105,7 +108,7 @@ export default function BottomGameHud() {
                     style={{
                       textAlign: 'center',
                       color: index > currentStageIndex ? ui.muted : ui.text,
-                      fontSize: '0.3rem',
+                      fontSize: rem(0.3),
                     }}
                   >
                     {index + 1}
@@ -119,7 +122,7 @@ export default function BottomGameHud() {
         <div
           style={{
             color: ui.secondary,
-            fontSize: '0.32rem',
+            fontSize: rem(0.32),
             textAlign: 'right',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -138,18 +141,18 @@ export default function BottomGameHud() {
           gridTemplateColumns: 'minmax(180px, 1fr) minmax(220px, 300px) minmax(180px, 1fr)',
           alignItems: 'center',
           gap: '1rem',
-          background: `linear-gradient(180deg, ${alpha(ui.controlBg, 0.96)} 0%, ${alpha('#06080b', 0.98)} 100%)`,
+          background: `linear-gradient(180deg, ${alpha(ui.secondary, 0.08)} 0%, ${alpha(ui.controlBg, 0.96)} 34%, ${alpha('#06080b', 0.98)} 100%)`,
           borderTop: `1px solid ${alpha(ui.secondary, 0.16)}`,
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.42rem', alignSelf: 'stretch', justifyContent: 'center' }}>
-          <div style={{ color: ui.badge, fontSize: '0.34rem', letterSpacing: '0.12em' }}>
+        <div style={infoCardStyle(ui, 'left')}>
+          <div style={{ color: ui.badge, fontSize: rem(0.34), letterSpacing: '0.12em' }}>
             {isKidsArcade ? copy.kidsModeLabel : `${copy.levelWord} ${level}`}
           </div>
           <div
             style={{
               color: ui.text,
-              fontSize: '0.42rem',
+              fontSize: rem(0.42),
               lineHeight: 1.6,
               maxWidth: 260,
               overflow: 'hidden',
@@ -159,7 +162,7 @@ export default function BottomGameHud() {
           >
             {levelDisplayName}
           </div>
-          <div style={{ color: ui.muted, fontSize: '0.32rem', lineHeight: 1.8 }}>
+          <div style={{ color: ui.muted, fontSize: rem(0.32), lineHeight: 1.8 }}>
             {isKidsArcade
               ? copy.kidsBanner
               : `${footerLevelProgress}/${footerLevelGoal || 0} cleared • ${copy.progressLabel.toLowerCase()} live`}
@@ -175,10 +178,11 @@ export default function BottomGameHud() {
               alignItems: 'center',
               justifyContent: 'center',
               border: `4px solid ${ui.danger}`,
+              borderRadius: 24,
               boxShadow: `0 0 0 4px ${alpha(ui.warning, 0.78)}, 0 0 28px ${alpha(ui.danger, 0.32)}`,
-              background: `linear-gradient(180deg, ${alpha(ui.danger, 0.24)} 0%, ${alpha(ui.controlBg, 0.98)} 100%)`,
+              background: `linear-gradient(180deg, ${alpha(ui.warning, 0.24)} 0%, ${alpha(ui.danger, 0.16)} 30%, ${alpha(ui.controlBg, 0.98)} 100%)`,
               color: ui.text,
-              fontSize: activeChar ? '2.25rem' : '1.2rem',
+              fontSize: activeChar ? rem(2.25) : rem(1.2),
               lineHeight: 1,
               transform: activeChar ? `scale(${1 + timerPercent * 0.06}) rotate(${(0.5 - timerPercent) * 2.2}deg)` : 'scale(1)',
             }}
@@ -186,7 +190,7 @@ export default function BottomGameHud() {
             {activeChar ?? '…'}
           </div>
           <div style={{ width: '100%', maxWidth: 280, display: 'flex', flexDirection: 'column', gap: '0.32rem' }}>
-            <div style={{ color: ui.muted, fontSize: '0.3rem', textAlign: 'center' }}>
+            <div style={{ color: ui.muted, fontSize: rem(0.3), textAlign: 'center' }}>
               {activeChar ? 'MATCH THE TARGET' : 'NEXT TARGET LOADING'}
             </div>
             <div
@@ -211,17 +215,17 @@ export default function BottomGameHud() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ color: ui.warning, fontSize: '0.32rem', letterSpacing: '0.12em' }}>
+        <div style={infoCardStyle(ui, 'right')}>
+          <div style={{ color: ui.warning, fontSize: rem(0.32), letterSpacing: '0.12em' }}>
             {isKidsArcade ? 'FUN LOOP' : 'RUN STATUS'}
           </div>
-          <div style={{ color: ui.text, fontSize: '0.42rem', lineHeight: 1.7, textAlign: 'right' }}>
+          <div style={{ color: ui.text, fontSize: rem(0.42), lineHeight: 1.7, textAlign: 'right' }}>
             {isKidsArcade ? 'Tap, type, and pop the target.' : `Exact = 100 • Any = 10`}
           </div>
           <div
             style={{
               color: ui.livesColor,
-              fontSize: '0.34rem',
+              fontSize: rem(0.34),
               lineHeight: 1.8,
               textAlign: 'right',
             }}
@@ -234,8 +238,33 @@ export default function BottomGameHud() {
   )
 }
 
+function infoCardStyle(
+  ui: ReturnType<typeof getThemeDefinition>['ui'],
+  align: 'left' | 'right',
+): React.CSSProperties {
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.45rem',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: align === 'right' ? 'flex-end' : 'flex-start',
+    padding: '0.65rem 0.85rem',
+    borderRadius: 18,
+    border: `1px solid ${alpha(ui.subtleBorder, 0.9)}`,
+    background: `linear-gradient(180deg, ${alpha('#ffffff', 0.05)} 0%, ${alpha(ui.controlBg, 0.82)} 100%)`,
+    boxShadow: `0 8px 22px ${alpha('#000000', 0.16)}`,
+  }
+}
+
 function alpha(color: string, opacity: number): string {
-  if (color.startsWith('rgba(')) return color
+  if (color.startsWith('rgba(') || color.startsWith('rgb(')) {
+    const parts = color.match(/[\d.]+/g)
+    if (parts && parts.length >= 3) {
+      const [red, green, blue] = parts
+      return `rgba(${red}, ${green}, ${blue}, ${opacity})`
+    }
+  }
   const normalized = color.replace('#', '')
   const step = normalized.length === 3
     ? normalized.split('').map((char) => char + char).join('')

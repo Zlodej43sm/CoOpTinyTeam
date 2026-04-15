@@ -2,16 +2,19 @@ import { useEffect, useState } from 'react'
 import { LEVELS } from '@/game/config/levels'
 import { getThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
-import { trackGameStarted } from '@/analytics/events'
+import { trackControlUsed, trackGameStarted, trackNavigationClick } from '@/analytics/events'
+import { rem } from '@/ui/typography'
 
 type GameControlsProps = {
   direction?: 'row' | 'column'
   size?: 'compact' | 'large'
+  surface?: 'hud' | 'pause-overlay'
 }
 
 export default function GameControls({
   direction = 'row',
   size = 'compact',
+  surface = 'hud',
 }: GameControlsProps) {
   const [isFullscreen, setIsFullscreen] = useState(
     () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
@@ -46,12 +49,14 @@ export default function GameControls({
   }, [])
 
   function handleReplay(): void {
+    trackControlUsed({ control: 'replay', source: surface })
+
     if (phase === 'kids-arcade') {
       reset()
       setLevel(1)
       setPaused(false)
       bumpRunId()
-      trackGameStarted({ level: 1, mode: 'kids' })
+      trackGameStarted({ level: 1, mode: 'kids', entryPoint: `${surface}-replay` })
       setPhase('kids-arcade')
       return
     }
@@ -63,11 +68,13 @@ export default function GameControls({
     setLevel(currentLevel)
     setPaused(false)
     bumpRunId()
-    trackGameStarted({ level: currentLevel, mode: 'coop' })
+    trackGameStarted({ level: currentLevel, mode: 'coop', entryPoint: `${surface}-replay` })
     setPhase(config?.isBoss ? 'boss' : 'playing')
   }
 
   function handleExit(): void {
+    trackControlUsed({ control: 'exit', source: surface })
+    trackNavigationClick({ cta: 'exit', source: surface, targetPhase: 'menu' })
     setPaused(false)
     reset()
     setPhase('menu')
@@ -79,8 +86,10 @@ export default function GameControls({
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen()
+        trackControlUsed({ control: 'fullscreen', source: surface, enabled: false })
       } else {
         await document.documentElement.requestFullscreen()
+        trackControlUsed({ control: 'fullscreen', source: surface, enabled: true })
       }
     } catch {
       // ignore fullscreen failures triggered by browser policy
@@ -103,7 +112,11 @@ export default function GameControls({
       <button
         type="button"
         data-no-global-tap="true"
-        onClick={() => setSoundEnabled(!soundEnabled)}
+        onClick={() => {
+          const nextEnabled = !soundEnabled
+          trackControlUsed({ control: 'sound', source: surface, enabled: nextEnabled })
+          setSoundEnabled(nextEnabled)
+        }}
         style={{
           ...buttonStyle(compact, ui),
           borderColor: soundEnabled ? ui.warning : ui.inactiveButtonBorder,
@@ -127,7 +140,11 @@ export default function GameControls({
       <button
         type="button"
         data-no-global-tap="true"
-        onClick={() => setPaused(!paused)}
+        onClick={() => {
+          const nextPaused = !paused
+          trackControlUsed({ control: 'pause', source: surface, enabled: nextPaused })
+          setPaused(nextPaused)
+        }}
         style={{ ...buttonStyle(compact, ui), borderColor: ui.secondary, color: '#d7eeff' }}
       >
         {paused ? 'RESUME' : 'PAUSE'}
@@ -157,12 +174,14 @@ function buttonStyle(
   ui: ReturnType<typeof getThemeDefinition>['ui'],
 ): React.CSSProperties {
   return {
-    background: ui.controlBg,
+    background: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, ${ui.controlBg} 100%)`,
     border: '2px solid',
     padding: compact ? '0.38rem 0.55rem' : '0.7rem 1rem',
-    fontSize: compact ? '0.34rem' : '0.48rem',
+    fontSize: compact ? rem(0.34) : rem(0.48),
     fontFamily: '"Press Start 2P", monospace',
     cursor: 'pointer',
-    boxShadow: '0 0 12px rgba(0, 0, 0, 0.25)',
+    borderRadius: compact ? 12 : 16,
+    letterSpacing: '0.08em',
+    boxShadow: '0 10px 18px rgba(0, 0, 0, 0.22)',
   }
 }

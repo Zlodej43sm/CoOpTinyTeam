@@ -45,9 +45,9 @@ export const GAMES_REGISTRY: GameEntry[] = [
   {
     id: 'code-busters',
     title: 'CODE BUSTERS',
-    subtitle: 'CO-OP TYPING GAME',
+    subtitle: 'HAUNTED IDE TYPING GAME',
     description:
-      'Squash bugs by typing highlighted characters. Co-op mode for parent + kid — 4 levels plus a boss fight.',
+      'A parent-developer and their tiny coder are trapped inside a haunted IDE. Type the streaming code together, squash cartoon bugs, and switch to kids arcade mode for younger players.',
     icon: '🐛',
     accentColor: '#39ff14',
     badge: 'PLAY NOW',
