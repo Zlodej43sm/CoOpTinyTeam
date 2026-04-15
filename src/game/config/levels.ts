@@ -1,0 +1,48 @@
+import type { LevelConfig } from '@/types'
+
+export const LEVELS: LevelConfig[] = [
+  {
+    id: 1,
+    filename: 'hello_world.js',
+    charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
+    waveSpeed: 70,
+    spawnRate: 0.5,
+    highlightWindow: 3200,
+    bgmTrack: '/assets/sounds/bgm/level1.mp3',
+    isBoss: false,
+    challengesToClear: 12,
+  },
+  {
+    id: 2,
+    filename: 'bug_fix.py',
+    charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split(''),
+    waveSpeed: 110,
+    spawnRate: 0.7,
+    highlightWindow: 2500,
+    bgmTrack: '/assets/sounds/bgm/level2.mp3',
+    isBoss: false,
+    challengesToClear: 15,
+  },
+  {
+    id: 3,
+    filename: 'deploy.sh',
+    charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.split(''),
+    waveSpeed: 155,
+    spawnRate: 0.9,
+    highlightWindow: 2000,
+    bgmTrack: '/assets/sounds/bgm/level3.mp3',
+    isBoss: false,
+    challengesToClear: 18,
+  },
+  {
+    id: 4,
+    filename: 'production.ts',
+    charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(){}[];'.split(''),
+    waveSpeed: 220,
+    spawnRate: 1.2,
+    highlightWindow: 1500,
+    bgmTrack: '/assets/sounds/bgm/level4.mp3',
+    isBoss: true,
+    challengesToClear: 25,
+  },
+]

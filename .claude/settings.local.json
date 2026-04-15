@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(ls /Users/alekseypovolotskiy/dev/myPets/CoOpTinyTeam/*.md /Users/alekseypovolotskiy/dev/myPets/CoOpTinyTeam/LICENSE)",
+      "Bash(git -C /Users/alekseypovolotskiy/dev/myPets/CoOpTinyTeam status)",
+      "Bash(npm run *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git config *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
