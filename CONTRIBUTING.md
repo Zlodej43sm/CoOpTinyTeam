@@ -6,7 +6,7 @@ This guide explains how to add a brand-new game to the platform.
 > **All contributions are subject to the [LICENSE](./LICENSE).**
 > By submitting a pull request you agree that your contribution is
 > licensed under the same terms and that all intellectual-property
-> rights remain with Oleksii Povolotskyi.
+> rights remain with CoOpTinyTeam (Oleksii Povolotskyi).
 
 ---
 
