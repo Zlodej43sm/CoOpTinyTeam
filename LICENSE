@@ -1,83 +1,124 @@
-CoOp Tiny Team Arcade — Proprietary Software License with Contribution Terms
+CoOp Tiny Team Arcade
+Source-Available License with Contributor Game Rights
 Copyright (c) 2024 Oleksii Povolotskyi (a.povolotskiy@gmail.com)
-All rights reserved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  WELCOME
+
+  CoOp Tiny Team is an open-invitation arcade platform — anyone can play,
+  share, and build games for it. The rules below are designed to protect
+  the platform and the brand while giving contributors real, meaningful
+  credit for the games they create.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. OWNERSHIP
 
-   This software, including all source code, assets, documentation, and
-   associated materials (the "Software"), is the exclusive intellectual
-   property of Oleksii Povolotskyi ("the Owner"). No transfer of ownership
-   or intellectual-property rights occurs under any circumstance, including
-   the acceptance of contributions.
+   1.1  The CoOp Tiny Team name, brand, logo, platform code, and all
+        associated materials ("the Platform") are owned by Oleksii
+        Povolotskyi ("the Owner").
 
-2. PERMITTED USES
+   1.2  Each individual game contributed to the platform ("a Game") is
+        co-owned as follows:
 
-   Subject to the restrictions below, you are permitted to:
+        — The game's original author(s) ("the Game Author") retain
+          authorship credit and are named as the game's creator in the
+          platform UI, documentation, and any release materials.
 
-   a) View and study the source code for personal, educational, or
-      evaluation purposes.
+        — The Owner holds all intellectual-property and commercialisation
+          rights to the Game as part of the CoOp Tiny Team Arcade catalogue.
+          This allows the platform to remain coherent and sustainable.
 
-   b) Fork the repository and submit pull requests for the purpose of
-      contributing improvements, bug fixes, or new features to the
-      official repository.
+   1.3  No contributor acquires ownership of the Platform or the CoOp
+        Tiny Team brand.
 
-   c) Run the Software locally on your own machine for personal,
-      non-commercial use.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-3. CONTRIBUTIONS
+2. WHAT EVERYONE CAN DO (FREE OF CHARGE)
 
-   By submitting a contribution (pull request, patch, issue, or any other
-   form of proposed change) to this project, you agree that:
+   ✔  Play any game on the platform in a browser, at any time, for free.
+   ✔  Share the platform URL or a link to any specific game with anyone.
+   ✔  Stream, record, or post gameplay footage, with attribution
+      ("CoOp Tiny Team by Oleksii Povolotskyi").
+   ✔  Read and study the source code for personal learning.
+   ✔  Fork the repository to experiment locally on your own machine.
+   ✔  Contribute new games or improvements (see Section 4).
 
-   a) Your contribution is made voluntarily and without expectation of
-      compensation.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   b) You grant the Owner a perpetual, worldwide, irrevocable,
-      royalty-free license to use, modify, sublicense, and distribute
-      your contribution as part of the Software.
+3. WHAT IS NOT PERMITTED
 
-   c) All intellectual-property rights in your contribution are assigned
-      to and vest in the Owner upon acceptance of the contribution.
+   Unless you have prior written permission from the Owner, you may NOT:
 
-   d) You represent that your contribution is original work and that you
-      have the right to make the above grant.
+   ✗  Redistribute, publish, or host a copy of the Platform or any Game
+      (modified or unmodified) on a domain or service you control.
 
-4. RESTRICTIONS
+   ✗  Use the Platform, any Game, or any substantial portion of the source
+      code in a commercial product, SaaS offering, or paid service.
 
-   Unless you have obtained prior written permission from the Owner, you
-   may NOT:
+   ✗  Remove, replace, or obscure any copyright notice, author credit,
+      or "CoOp Tiny Team" attribution from any part of the Platform.
 
-   a) Distribute, sell, sublicense, rent, lease, or otherwise transfer
-      the Software or any portion of it to any third party.
+   ✗  Sell, sublicense, or transfer any part of this software to a
+      third party.
 
-   b) Use the Software or any portion of it in a commercial product or
-      service.
+   ✗  Claim ownership of a contributed Game independent of the platform.
 
-   c) Remove or alter any copyright notice, attribution, or other
-      proprietary marking in the Software.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   d) Publish or publicly host a modified version of the Software.
+4. CONTRIBUTOR TERMS — BUILDING A GAME
 
-5. NO WARRANTY
+   By submitting a pull request that adds or modifies a Game you agree:
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
-   NON-INFRINGEMENT. IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY
-   CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-   TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
-   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+   4.1  AUTHORSHIP CREDIT
+        Your name (or team name) will be displayed as the Game Author in
+        the platform UI. This credit is permanent and survives future
+        changes to the codebase.
 
-6. GOVERNING LAW
+   4.2  LICENCE GRANT
+        You grant the Owner a perpetual, worldwide, irrevocable,
+        royalty-free right to use, modify, publish, and commercially
+        exploit your Game as part of the CoOp Tiny Team Arcade catalogue.
 
-   This license is governed by the laws of the jurisdiction in which the
-   Owner resides, without regard to conflict-of-law principles.
+   4.3  IP ASSIGNMENT
+        All intellectual-property rights in the contributed Game vest in
+        and are assigned to the Owner upon acceptance of the contribution,
+        subject to the authorship credit in 4.1.
 
-7. CONTACT
+   4.4  ORIGINALITY
+        You represent that your contribution is original work, does not
+        infringe any third-party rights, and that you have the authority
+        to make the above grant.
 
-   For permissions beyond the scope of this license, contact:
+   4.5  NO OBLIGATION
+        The Owner is under no obligation to accept, publish, or maintain
+        any contribution.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5. THIRD-PARTY COMPONENTS
+
+   This Platform uses open-source libraries (React, Pixi.js, Howler.js,
+   Zustand, PostHog, and others). Those libraries retain their original
+   licences and are not affected by this document. See package.json for
+   the full dependency list.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6. NO WARRANTY
+
+   THE PLATFORM AND ALL GAMES ARE PROVIDED "AS IS" WITHOUT WARRANTY OF
+   ANY KIND, EXPRESS OR IMPLIED. THE OWNER SHALL NOT BE LIABLE FOR ANY
+   CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM USE OF THE SOFTWARE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7. CONTACT & PERMISSIONS
+
+   To request permissions beyond this licence, discuss a collaboration,
+   or report a concern:
+
    Oleksii Povolotskyi — a.povolotskiy@gmail.com
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
