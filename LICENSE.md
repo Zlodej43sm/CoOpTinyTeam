@@ -7,9 +7,7 @@ Copyright (c) 2026 CoOpTinyTeam
   ABOUT COOPTINYTEAM
 
   CoOpTinyTeam is a brand, concept, and project created and owned by
-  Oleksii Povolotskyi (a.povolotskiy@gmail.com). The name, idea, and any
-  company or entity operating under the CoOpTinyTeam identity belong
-  exclusively to Oleksii Povolotskyi. All rights not expressly granted
+  Oleksii Povolotskyi (a.povolotskiy@gmail.com). All rights not expressly granted
   below are reserved.
 
   CoOp Tiny Team is an open-invitation arcade platform — anyone can play,
