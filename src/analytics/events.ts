@@ -253,3 +253,53 @@ export function trackScoreSaved(payload: {
     storage: payload.storage,
   })
 }
+
+export function trackAmbientBugSquashed(payload: {
+  level: number
+  score: number
+}) {
+  captureEvent('ambient_bug_squashed', {
+    level: payload.level,
+    score: payload.score,
+  })
+}
+
+export function trackBossStarted(payload: {
+  level: number
+  mode: GameMode
+}) {
+  captureEvent('boss_started', {
+    level: payload.level,
+    mode: payload.mode,
+  })
+}
+
+export function trackBossCompleted(payload: {
+  level: number
+  score: number
+  durationSec: number
+}) {
+  captureEvent('boss_completed', {
+    level: payload.level,
+    score: payload.score,
+    duration_sec: payload.durationSec,
+  })
+}
+
+export function trackChallengeTimedOut(payload: {
+  char: string
+  level: number
+}) {
+  captureEvent('challenge_timed_out', {
+    char: payload.char,
+    level: payload.level,
+  })
+}
+
+export function trackGameInitFailed(payload: {
+  error: string
+}) {
+  captureEvent('game_init_failed', {
+    error: payload.error,
+  })
+}

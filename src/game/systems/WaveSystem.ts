@@ -3,6 +3,8 @@ import { CodeWave } from '@/game/entities/CodeWave'
 import { CharToken, TOKEN_W } from '@/game/entities/CharToken'
 import { WAVE_BOTTOM_PADDING } from '@/game/config/layout'
 import type { GameTheme, LevelConfig } from '@/types'
+import { useGameStore } from '@/store/gameStore'
+import { trackChallengeTimedOut } from '@/analytics/events'
 
 const MIN_WAVE_COUNT = 7
 export const WAVE_SPACING = 58
@@ -165,6 +167,8 @@ export class WaveSystem {
     this.activeToken = null
     this.phase = 'cooldown'
     this.timer = COOLDOWN_MS
+    const { level } = useGameStore.getState()
+    trackChallengeTimedOut({ char, level })
     this.onMiss?.(char)
   }
 

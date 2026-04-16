@@ -7,6 +7,7 @@ import { LEVELS } from '@/game/config/levels'
 import { getThemeDefinition } from '@/game/config/theme'
 import { AudioSystem } from '@/game/systems/AudioSystem'
 import { useGameStore } from '@/store/gameStore'
+import { trackBossCompleted, trackGameInitFailed } from '@/analytics/events'
 
 type ActiveScene = Container & {
   update: (dt: number) => void
@@ -22,6 +23,7 @@ export class Game {
   private initialized = false
   private destroyed = false
   private currentBgmTrack: string | null = null
+  private levelStartMs = 0
   private readonly handleResize = () => {
     const { phase } = useGameStore.getState()
     if (phase === 'playing' || phase === 'boss' || phase === 'kids-arcade') {
@@ -83,6 +85,7 @@ export class Game {
 
         app.ticker.add(this.handleTick)
       } catch (error) {
+        trackGameInitFailed({ error: error instanceof Error ? error.message : String(error) })
         this.audio?.destroy()
         this.audio = null
         this.cleanupState()
@@ -119,13 +122,18 @@ export class Game {
         ? new BossScene(width, height, this.audio ?? undefined)
         : new LevelScene(width, height, this.audio ?? undefined)
     this.app.stage.addChild(this.scene)
+    this.levelStartMs = Date.now()
     this.syncSound()
 
     if (isKidsArcade) return
 
     this.scene.onLevelComplete = () => {
-      const { level, setLevel, setPaused, setPhase } = useGameStore.getState()
+      const { level, score, setLevel, setPaused, setPhase } = useGameStore.getState()
       setPaused(false)
+      if (config.isBoss) {
+        const durationSec = Math.max(0.1, Math.round((Date.now() - this.levelStartMs) / 100) / 10)
+        trackBossCompleted({ level, score, durationSec })
+      }
       if (level >= LEVELS.length) {
         setPhase('name-entry')
       } else {

@@ -1,6 +1,8 @@
 import { Graphics, Text } from 'pixi.js'
 import { AudioSystem } from '@/game/systems/AudioSystem'
 import { LevelScene } from './LevelScene'
+import { useGameStore } from '@/store/gameStore'
+import { trackBossStarted } from '@/analytics/events'
 
 /** Boss scene — extends LevelScene with screen-shake and rapid-fire waves */
 export class BossScene extends LevelScene {
@@ -15,6 +17,8 @@ export class BossScene extends LevelScene {
     super(w, h, audio)
     this.vignette = this.addVignette(w, h)
     this.warningText = this.addWarningText(w)
+    const { level } = useGameStore.getState()
+    trackBossStarted({ level, mode: 'solo' })
   }
 
   triggerShake(intensity = 8): void {

@@ -1,5 +1,5 @@
 import { useGameStore } from '@/store/gameStore'
-import { trackCharAction, trackLevelFailed } from '@/analytics/events'
+import { trackAmbientBugSquashed, trackCharAction, trackLevelFailed } from '@/analytics/events'
 
 const AMBIENT_BUG_SQUASH_POINTS = 75
 
@@ -20,8 +20,9 @@ export class ScoringSystem {
   }
 
   recordBugSquash(): void {
-    const { addScore } = useGameStore.getState()
+    const { addScore, level, score } = useGameStore.getState()
     addScore(AMBIENT_BUG_SQUASH_POINTS)
+    trackAmbientBugSquashed({ level, score })
   }
 
   recordMiss(char: string): void {
