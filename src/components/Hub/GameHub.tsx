@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { getThemeDefinition } from '@/game/config/theme'
-import { trackHubGameLaunched, trackThemeSelected } from '@/analytics/events'
+import { trackHubGameLaunched, trackNavigationClick, trackThemeSelected } from '@/analytics/events'
 import { GAMES_REGISTRY, type GameEntry } from '@/games/registry'
+import { pushWishlistPath } from '@/services/navigation'
 import { rem } from '@/ui/typography'
 
 export default function GameHub() {
@@ -174,6 +175,114 @@ export default function GameHub() {
           })}
         </div>
       </header>
+
+      <section
+        aria-labelledby="wishlist-heading"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))',
+          gap: '1rem',
+          width: '100%',
+          maxWidth: '960px',
+          padding: '1rem',
+          border: `1px solid ${ui.subtleBorder}`,
+          borderRadius: 18,
+          background: `linear-gradient(180deg, ${hexToRgba('#ffffff', 0.05)} 0%, ${hexToRgba(ui.secondary, 0.06)} 100%), ${ui.selectorBackground}`,
+          boxShadow: `0 18px 42px ${hexToRgba('#000000', 0.2)}`,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.65rem',
+            minWidth: 0,
+          }}
+        >
+          <p
+            style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: rem(0.35),
+              color: ui.warning,
+              letterSpacing: '0.12em',
+              lineHeight: 1.7,
+            }}
+          >
+            GIFTS · SHARED PICKS
+          </p>
+          <h2
+            id="wishlist-heading"
+            style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: rem(0.58),
+              color: ui.text,
+              letterSpacing: '0.05em',
+              lineHeight: 1.7,
+            }}
+          >
+            Create a shared gift wishlist for birthdays, holidays, and tiny-team surprises
+          </h2>
+          <p
+            style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: rem(0.36),
+              color: ui.muted,
+              letterSpacing: '0.05em',
+              lineHeight: 1.95,
+            }}
+          >
+            Add gift ideas with links and notes, share the wishlist URL with family or friends,
+            and let each person select one item so the rest of the group can see it is already taken.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'stretch',
+            gap: '0.7rem',
+            minWidth: 0,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              trackNavigationClick({ cta: 'wishlist', source: 'hub', targetPhase: 'wishlist' })
+              pushWishlistPath()
+              setPhase('wishlist')
+            }}
+            style={{
+              background: `linear-gradient(180deg, ${hexToRgba(ui.accent, 0.16)} 0%, ${hexToRgba(ui.controlBg, 0.94)} 100%)`,
+              border: `2px solid ${ui.accent}`,
+              color: ui.accent,
+              padding: '0.85rem 1rem',
+              fontSize: rem(0.42),
+              fontFamily: '"Press Start 2P", monospace',
+              cursor: 'pointer',
+              letterSpacing: '0.08em',
+              lineHeight: 1.5,
+              borderRadius: 14,
+              boxShadow: `0 12px 24px ${hexToRgba(ui.accent, 0.14)}`,
+            }}
+          >
+            OPEN WISHLIST
+          </button>
+          <div
+            style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: rem(0.31),
+              color: ui.secondary,
+              lineHeight: 1.9,
+              letterSpacing: '0.06em',
+              textAlign: 'center',
+            }}
+          >
+            Gift list · item links · descriptions · one picker per gift
+          </div>
+        </div>
+      </section>
 
       <section
         aria-labelledby="featured-games-heading"

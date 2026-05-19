@@ -9,14 +9,18 @@
     "preview": "npm run build && wrangler dev",
     "test": "vitest",
     "lint": "eslint src",
+    "db:create": "wrangler d1 create co-op-tiny-team-wishlist",
+    "db:migrate:local": "wrangler d1 migrations apply WISHLIST_DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply WISHLIST_DB --remote",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@pixi/react": "^8.0.2",
     "@supabase/supabase-js": "^2.47.2",
+    "gd-design-library": "^1.8.2",
     "howler": "^2.2.4",
     "pixi.js": "^8.6.6",
-    "posthog-js": "^1.220.0",
+    "posthog-js": "^1.374.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zustand": "^5.0.3"
