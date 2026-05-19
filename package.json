@@ -17,7 +17,6 @@
   "dependencies": {
     "@pixi/react": "^8.0.2",
     "@supabase/supabase-js": "^2.47.2",
-    "gd-design-library": "^1.8.2",
     "howler": "^2.2.4",
     "pixi.js": "^8.6.6",
     "posthog-js": "^1.374.2",
