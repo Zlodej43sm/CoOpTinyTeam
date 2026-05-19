@@ -1,6 +1,7 @@
 export type GamePhase =
   | 'hub'
   | 'menu'
+  | 'wishlist'
   | 'rules'
   | 'level-select'
   | 'playing'
@@ -34,4 +35,27 @@ export interface ScoreEntry {
   score: number
   levelReached: number
   createdAt: string
+}
+
+export interface WishlistItem {
+  id: string
+  title: string
+  link: string
+  description: string
+  selectedBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Wishlist {
+  id: string
+  name: string
+  items: WishlistItem[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WishlistAccess {
+  canEdit: boolean
+  editToken: string | null
 }

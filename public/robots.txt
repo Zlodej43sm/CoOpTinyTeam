@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Allow: /wishlist
+Disallow: /api/
+Disallow: /wishlist/
 
 Sitemap: https://cooptinyteam.com/sitemap.xml
