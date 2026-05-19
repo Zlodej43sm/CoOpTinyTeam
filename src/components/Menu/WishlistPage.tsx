@@ -855,11 +855,17 @@ function normalizeExternalLink(link: string): string {
 }
 
 const pageStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
   width: '100%',
-  height: '100%',
+  height: 'auto',
+  minHeight: '100%',
   overflowY: 'auto',
   overflowX: 'hidden',
+  WebkitOverflowScrolling: 'touch',
+  overscrollBehaviorY: 'contain',
   display: 'flex',
+  alignItems: 'flex-start',
   justifyContent: 'center',
   padding: '1.2rem 0.85rem 2.4rem',
   background: WISHLIST_UI.appBackground,
