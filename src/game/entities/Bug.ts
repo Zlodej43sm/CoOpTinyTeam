@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
-import { getThemeDefinition } from '@/game/config/theme'
+import { getAppThemeDefinition } from '@/services/appTheme'
 import type { GameTheme } from '@/types'
 
 const TRADING_VARIANTS = ['dip', 'short', 'long'] as const
@@ -8,7 +8,7 @@ export class Bug extends Container {
   constructor(theme: GameTheme) {
     super()
     const g = new Graphics()
-    const themeDef = getThemeDefinition(theme)
+    const themeDef = getAppThemeDefinition(theme)
 
     if (theme === 'trading') {
       const variant = TRADING_VARIANTS[Math.floor(Math.random() * TRADING_VARIANTS.length)]!

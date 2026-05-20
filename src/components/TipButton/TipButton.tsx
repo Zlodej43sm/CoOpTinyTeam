@@ -1,10 +1,13 @@
 import { trackTipClicked } from '@/analytics/events'
+import { useTranslation } from '@/hooks/useTranslation'
 
 const TIP_URL = import.meta.env.VITE_TIP_URL as string | undefined
 
 const METHODS = ['Apple Pay', 'Google Pay', 'Card', 'BLIK']
 
 export default function TipButton() {
+  const { messages } = useTranslation()
+
   if (!TIP_URL) return null
 
   return (
@@ -32,7 +35,7 @@ export default function TipButton() {
           opacity: 0.85,
         }}
       >
-        ❤️ BUY US A COFFEE
+        {messages.tip.buyCoffee}
       </a>
 
       <div

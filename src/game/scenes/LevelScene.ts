@@ -8,9 +8,10 @@ import { Bug } from '@/game/entities/Bug'
 import { Coder } from '@/game/entities/Coder'
 import { FOOTER_BOTTOM_TAIL, FOOTER_PANEL_HEIGHT, FOOTER_PIPELINE_HEIGHT } from '@/game/config/layout'
 import { LEVELS } from '@/game/config/levels'
-import { getThemeDefinition } from '@/game/config/theme'
+import { getAppThemeDefinition } from '@/services/appTheme'
 import type { ThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
+import { getTokenTapRadius, getThreatBugTapRadius, getAmbientBugTapRadius } from '@/game/utils/touch'
 import { trackLevelCompleted } from '@/analytics/events'
 
 const TIMER_BAR_H = 10
@@ -21,6 +22,8 @@ const PIPELINE_MAX_W = 520
 const PIPELINE_CONNECTOR_GAP = 18
 const PIPELINE_SEGMENT_H = 18
 const AMBIENT_BUG_SQUASH_RADIUS = 30
+const TOUCH_BUG_HIT_RADIUS = 38
+const THREAT_BUG_HIT_RADIUS = 34
 
 export class LevelScene extends Container {
   protected w: number
@@ -66,7 +69,7 @@ export class LevelScene extends Container {
     this.h = h
     this.audio = audio
     this.timerBarMaxW = w * 0.55
-    this.themeDef = getThemeDefinition(useGameStore.getState().theme)
+    this.themeDef = getAppThemeDefinition()
     const colors = this.themeDef.colors
 
     const level = useGameStore.getState().level
@@ -309,10 +312,64 @@ export class LevelScene extends Container {
     this.flashAlpha = 0.28
   }
 
-  protected handleInputKey(key: string): void {
-    const matchPositions = this.waveSystem.getVisibleMatchPositions(key)
+  protected handleInputKey(key: string, tapPoint?: { x: number; y: number }): void {
+    const matchPositions = key.length === 1
+      ? this.waveSystem.getVisibleMatchPositions(key)
+      : []
+    if (tapPoint) {
+      matchPositions.push(tapPoint)
+    }
     this.trySquashAmbientBug(matchPositions)
     this.waveSystem.handleKey(key)
+  }
+
+  handleTapAt(x: number, y: number): void {
+    this.handleInputKey(this.resolveTapKey(x, y), { x, y })
+  }
+
+  private resolveTapKey(x: number, y: number): string {
+    const phase = useGameStore.getState().phase
+    const tokenChar = this.waveSystem.pickTokenAt(x, y, getTokenTapRadius())
+
+    if (tokenChar) return tokenChar
+
+    if (this.isThreatBugAt(x, y) && this.waveSystem.activeChar) {
+      return this.waveSystem.activeChar
+    }
+
+    if (this.findAmbientBugAt(x, y, getAmbientBugTapRadius(TOUCH_BUG_HIT_RADIUS)) && this.waveSystem.activeChar) {
+      return this.waveSystem.activeChar
+    }
+
+    if (phase === 'kids-arcade') {
+      return this.waveSystem.activeChar ?? 'TAP'
+    }
+
+    return 'TAP'
+  }
+
+  private findAmbientBugAt(x: number, y: number, radius = TOUCH_BUG_HIT_RADIUS): AmbientBug | null {
+    let bestBug: AmbientBug | null = null
+    let bestDistance = radius
+
+    for (const bug of this.ambientBugs) {
+      const distance = bug.distanceTo(x, y)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestBug = bug
+      }
+    }
+
+    return bestBug
+  }
+
+  private isThreatBugAt(x: number, y: number): boolean {
+    if (!this.threatBug.visible) return false
+
+    const scale = this.threatBug.scale.x
+    const hitRadius = getThreatBugTapRadius(THREAT_BUG_HIT_RADIUS) * scale
+
+    return Math.hypot(x - this.threatBug.position.x, y - this.threatBug.position.y) <= hitRadius
   }
 
   protected handleWaveHit(char: string, exact: boolean): void {

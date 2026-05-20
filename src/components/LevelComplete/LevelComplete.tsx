@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { LEVELS } from '@/game/config/levels'
-import { getLevelDisplayName, getThemeDefinition } from '@/game/config/theme'
+import { getLevelDisplayName } from '@/game/config/theme'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
 import { rem } from '@/ui/typography'
 
 export default function LevelComplete() {
@@ -9,7 +10,7 @@ export default function LevelComplete() {
   const theme = useGameStore((s) => s.theme)
   const setPhase = useGameStore((s) => s.setPhase)
   const config = LEVELS[(level - 1) % LEVELS.length]
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
 
   useEffect(() => {
     const nextPhase = config?.isBoss ? 'boss' : 'playing'

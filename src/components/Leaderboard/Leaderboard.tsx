@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { getThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
 import { trackGameStarted, trackLeaderboardAction, trackNavigationClick } from '@/analytics/events'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useTranslation } from '@/hooks/useTranslation'
+import type { ThemeUi } from '@/game/config/theme'
 import { loadTopScores } from '@/services/scores'
 import type { ScoreEntry } from '@/types'
 import { rem } from '@/ui/typography'
@@ -11,15 +13,16 @@ export default function Leaderboard() {
   const score = useGameStore((s) => s.score)
   const level = useGameStore((s) => s.level)
   const phase = useGameStore((s) => s.phase)
-  const theme = useGameStore((s) => s.theme)
   const setPhase = useGameStore((s) => s.setPhase)
   const reset = useGameStore((s) => s.reset)
   const bumpRunId = useGameStore((s) => s.bumpRunId)
 
   const [topScores, setTopScores] = useState<ScoreEntry[]>([])
   const isVictory = phase === 'victory'
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const { messages } = useTranslation()
   const { ui, copy } = themeDef
+  const c = messages.common
 
   useEffect(() => {
     let cancelled = false
@@ -78,7 +81,7 @@ export default function Leaderboard() {
 
       <div style={{ fontSize: rem(0.55), color: ui.muted, lineHeight: 2 }}>
         <span style={{ color: ui.accent }}>{score.toString().padStart(7, '0')}</span>
-        {' '}pts &nbsp;|&nbsp; {copy.levelWord.toLowerCase()}{' '}
+        {' '}{c.pts} &nbsp;|&nbsp; {copy.levelWord.toLowerCase()}{' '}
         <span style={{ color: ui.secondary }}>{level}</span>
       </div>
 
@@ -109,8 +112,8 @@ export default function Leaderboard() {
       )}
 
       <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem' }}>
-        <button onClick={handleRestart} style={btnStyle(ui)}>RETRY</button>
-        <button onClick={handleMenu} style={btnStyle(ui)}>MENU</button>
+        <button onClick={handleRestart} style={btnStyle(ui)}>{c.retry}</button>
+        <button onClick={handleMenu} style={btnStyle(ui)}>{c.menu}</button>
       </div>
 
       <TipButton />
@@ -118,7 +121,7 @@ export default function Leaderboard() {
   )
 }
 
-function btnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function btnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${ui.controlBg} 0%, rgba(255,255,255,0.04) 100%)`,
     border: `2px solid ${ui.accent}`,

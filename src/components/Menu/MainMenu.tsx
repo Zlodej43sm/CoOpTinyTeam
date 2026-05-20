@@ -1,6 +1,9 @@
 import { getThemeDefinition } from '@/game/config/theme'
+import type { ThemeUi } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
 import { trackGameStarted, trackNavigationClick, trackThemeSelected } from '@/analytics/events'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useTranslation } from '@/hooks/useTranslation'
 import { rem } from '@/ui/typography'
 import TipButton from '@/components/TipButton/TipButton'
 
@@ -10,7 +13,8 @@ export default function MainMenu() {
   const setPhase = useGameStore((s) => s.setPhase)
   const reset = useGameStore((s) => s.reset)
   const bumpRunId = useGameStore((s) => s.bumpRunId)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const { messages } = useTranslation()
   const { ui, copy } = themeDef
 
   function handleStart() {
@@ -67,7 +71,7 @@ export default function MainMenu() {
           boxShadow: `0 0 18px ${alpha(ui.warning, 0.18)}`,
         }}
       >
-        BIG HELPERS + LITTLE PLAYERS
+        {messages.menu.bigHelpers}
       </div>
 
       <div
@@ -79,7 +83,7 @@ export default function MainMenu() {
           width: '100%',
         }}
       >
-        <div style={{ fontSize: rem(0.43), color: ui.muted, letterSpacing: '0.14em' }}>THEME MODE</div>
+        <div style={{ fontSize: rem(0.43), color: ui.muted, letterSpacing: '0.14em' }}>{messages.menu.themeMode}</div>
         <div
           style={{
             display: 'flex',
@@ -136,11 +140,11 @@ export default function MainMenu() {
           e.currentTarget.style.boxShadow = `0 0 14px ${alpha(ui.accent, 0.28)}`
         }}
       >
-        START GAME
+        {messages.common.startGame}
       </button>
 
       <button onClick={handleKidsArcadeStart} style={kidsBtnStyle(ui)}>
-        KIDS ARCADE
+        {messages.menu.kidsArcade}
       </button>
 
       <button
@@ -170,7 +174,7 @@ export default function MainMenu() {
         }}
         style={backBtnStyle(ui)}
       >
-        ← ALL GAMES
+        {messages.common.allGames}
       </button>
 
       <TipButton />
@@ -197,7 +201,7 @@ function alpha(color: string, opacity: number): string {
 }
 
 function themeOptionStyle(
-  ui: ReturnType<typeof getThemeDefinition>['ui'],
+  ui: ThemeUi,
   active: boolean,
 ): React.CSSProperties {
   return {
@@ -217,7 +221,7 @@ function themeOptionStyle(
   }
 }
 
-function primaryBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function primaryBtnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.accent, 0.16)} 0%, ${alpha(ui.controlBg, 0.94)} 100%)`,
     border: `2px solid ${ui.accent}`,
@@ -233,7 +237,7 @@ function primaryBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React
   }
 }
 
-function secondaryBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function secondaryBtnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.secondary, 0.14)} 0%, ${alpha(ui.controlBg, 0.94)} 100%)`,
     border: `2px solid ${ui.secondary}`,
@@ -248,7 +252,7 @@ function secondaryBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): Rea
   }
 }
 
-function kidsBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function kidsBtnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.warning, 0.34)} 0%, ${alpha(ui.danger, 0.18)} 100%)`,
     border: `2px solid ${ui.warning}`,
@@ -263,7 +267,7 @@ function kidsBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CS
   }
 }
 
-function tertiaryBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function tertiaryBtnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.danger, 0.14)} 0%, ${alpha(ui.controlBg, 0.94)} 100%)`,
     border: `2px solid ${ui.danger}`,
@@ -278,7 +282,7 @@ function tertiaryBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): Reac
   }
 }
 
-function backBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function backBtnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: 'transparent',
     border: 'none',

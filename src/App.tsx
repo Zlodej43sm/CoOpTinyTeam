@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
-import { getThemeDefinition } from '@/game/config/theme'
 import { trackAppLoaded, trackPhaseViewed } from '@/analytics/events'
+import AppPreferencesBar from '@/components/AppPreferencesBar/AppPreferencesBar'
 import GameHub from '@/components/Hub/GameHub'
 import MainMenu from '@/components/Menu/MainMenu'
 import RulesPage from '@/components/Menu/RulesPage'
@@ -12,20 +12,20 @@ import LevelComplete from '@/components/LevelComplete/LevelComplete'
 import Leaderboard from '@/components/Leaderboard/Leaderboard'
 import NameEntry from '@/components/NameEntry/NameEntry'
 import PauseOverlay from '@/components/PauseOverlay/PauseOverlay'
-import TouchControls from '@/components/TouchControls/TouchControls'
 import BottomGameHud from '@/components/HUD/BottomGameHud'
+import TouchGameplayHint from '@/components/TouchControls/TouchGameplayHint'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
 import { getPhaseFromPath } from '@/services/navigation'
 
 export default function App() {
   const phase = useGameStore((s) => s.phase)
+  const locale = useGameStore((s) => s.locale)
   const setPhase = useGameStore((s) => s.setPhase)
   const paused = useGameStore((s) => s.paused)
   const runId = useGameStore((s) => s.runId)
-  const theme = useGameStore((s) => s.theme)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
 
   const gameplayPhase = phase === 'playing' || phase === 'boss' || phase === 'kids-arcade'
-  const typingGameplayPhase = phase === 'playing' || phase === 'boss'
   const showCanvas = gameplayPhase || phase === 'level-complete'
   const showLeaderboard = phase === 'gameover' || phase === 'victory'
 
@@ -54,6 +54,20 @@ export default function App() {
     trackPhaseViewed(phase)
   }, [phase, runId])
 
+  useEffect(() => {
+    document.documentElement.lang = locale === 'zh' ? 'zh-CN' : locale
+  }, [locale])
+
+  useEffect(() => {
+    document.body.style.background = themeDef.ui.appBackground
+    document.body.style.color = themeDef.ui.text
+
+    return () => {
+      document.body.style.background = ''
+      document.body.style.color = ''
+    }
+  }, [themeDef.ui.appBackground, themeDef.ui.text])
+
   return (
     <div
       className="app"
@@ -63,6 +77,7 @@ export default function App() {
         transition: 'background 160ms ease, color 160ms ease',
       }}
     >
+      <AppPreferencesBar />
       {phase === 'hub' && <GameHub />}
       {phase === 'menu' && <MainMenu />}
       {phase === 'wishlist' && <WishlistPage />}
@@ -75,7 +90,7 @@ export default function App() {
 
       {/* Level-complete overlay sits on top of the frozen canvas */}
       {phase === 'level-complete' && <LevelComplete />}
-      {typingGameplayPhase && !paused && <TouchControls />}
+      {gameplayPhase && !paused && <TouchGameplayHint />}
       {gameplayPhase && paused && <PauseOverlay />}
 
       {phase === 'name-entry' && <NameEntry />}

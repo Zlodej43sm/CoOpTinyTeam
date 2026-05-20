@@ -1,7 +1,11 @@
 import { BOTTOM_HUD_HEIGHT, FOOTER_PANEL_HEIGHT, FOOTER_PIPELINE_HEIGHT } from '@/game/config/layout'
 import { LEVELS } from '@/game/config/levels'
-import { getLevelDisplayName, getThemeDefinition } from '@/game/config/theme'
+import { getLevelDisplayName } from '@/game/config/theme'
+import type { ThemeUi } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useResolvedColorScheme } from '@/hooks/useResolvedColorScheme'
+import { useTranslation } from '@/hooks/useTranslation'
 import { rem } from '@/ui/typography'
 
 export default function BottomGameHud() {
@@ -12,16 +16,23 @@ export default function BottomGameHud() {
   const footerChallengeProgress = useGameStore((s) => s.footerChallengeProgress)
   const footerLevelProgress = useGameStore((s) => s.footerLevelProgress)
   const footerLevelGoal = useGameStore((s) => s.footerLevelGoal)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const colorScheme = useResolvedColorScheme()
+  const { messages, t } = useTranslation()
   const { ui, copy, livesGlyph } = themeDef
+  const hud = messages.hud
+  const footerPanelBackground =
+    colorScheme === 'light'
+      ? `linear-gradient(180deg, ${alpha(ui.secondary, 0.08)} 0%, ${alpha(ui.controlBg, 0.96)} 34%, ${alpha(ui.controlBg, 0.99)} 100%)`
+      : `linear-gradient(180deg, ${alpha(ui.secondary, 0.08)} 0%, ${alpha(ui.controlBg, 0.96)} 34%, ${alpha('#06080b', 0.98)} 100%)`
   const isKidsArcade = phase === 'kids-arcade'
   const stageCount = LEVELS.length
   const currentStageIndex = Math.max(0, Math.min(stageCount - 1, level - 1))
   const levelDisplayName = getLevelDisplayName(theme, level)
-  const pipelineLabel = isKidsArcade ? copy.kidsModeLabel : `${copy.progressLabel} FLOW`
+  const pipelineLabel = isKidsArcade ? copy.kidsModeLabel : `${copy.progressLabel} ${hud.flowSuffix}`
   const levelProgressRatio = footerLevelGoal > 0 ? Math.min(1, footerLevelProgress / footerLevelGoal) : 0
   const timerPercent = Math.max(0, Math.min(1, footerChallengeProgress))
-  const runStatusBonusLabel = theme === 'trading' ? 'Dip = 75' : 'Bug = 75'
+  const runStatusBonusLabel = theme === 'trading' ? hud.dipBonus : hud.bugBonus
   const timerColor =
     timerPercent > 0.5 ? ui.accent
     : timerPercent > 0.25 ? ui.warning
@@ -73,7 +84,7 @@ export default function BottomGameHud() {
               letterSpacing: '0.12em',
             }}
           >
-            ENDLESS FUN
+            {hud.endlessFun}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stageCount}, minmax(0, 1fr))`, gap: '0.55rem' }}>
@@ -142,7 +153,7 @@ export default function BottomGameHud() {
           gridTemplateColumns: 'minmax(180px, 1fr) minmax(220px, 300px) minmax(180px, 1fr)',
           alignItems: 'center',
           gap: '1rem',
-          background: `linear-gradient(180deg, ${alpha(ui.secondary, 0.08)} 0%, ${alpha(ui.controlBg, 0.96)} 34%, ${alpha('#06080b', 0.98)} 100%)`,
+          background: footerPanelBackground,
           borderTop: `1px solid ${alpha(ui.secondary, 0.16)}`,
         }}
       >
@@ -166,7 +177,11 @@ export default function BottomGameHud() {
           <div style={{ color: ui.muted, fontSize: rem(0.32), lineHeight: 1.8 }}>
             {isKidsArcade
               ? copy.kidsBanner
-              : `${footerLevelProgress}/${footerLevelGoal || 0} cleared • ${copy.progressLabel.toLowerCase()} live`}
+              : t(hud.clearedProgress, {
+                  done: footerLevelProgress,
+                  total: footerLevelGoal || 0,
+                  label: copy.progressLabel.toLowerCase(),
+                })}
           </div>
         </div>
 
@@ -192,7 +207,7 @@ export default function BottomGameHud() {
           </div>
           <div style={{ width: '100%', maxWidth: 280, display: 'flex', flexDirection: 'column', gap: '0.32rem' }}>
             <div style={{ color: ui.muted, fontSize: rem(0.3), textAlign: 'center' }}>
-              {activeChar ? 'MATCH THE TARGET' : 'NEXT TARGET LOADING'}
+              {activeChar ? hud.matchTarget : hud.nextTargetLoading}
             </div>
             <div
               style={{
@@ -218,10 +233,10 @@ export default function BottomGameHud() {
 
         <div style={infoCardStyle(ui, 'right')}>
           <div style={{ color: ui.warning, fontSize: rem(0.32), letterSpacing: '0.12em' }}>
-            {isKidsArcade ? 'FUN LOOP' : 'RUN STATUS'}
+            {isKidsArcade ? hud.funLoop : hud.runStatus}
           </div>
           <div style={{ color: ui.text, fontSize: rem(0.42), lineHeight: 1.7, textAlign: 'right' }}>
-            {isKidsArcade ? 'Tap, type, and pop the target.' : `Exact = 100 • Any = 10 • ${runStatusBonusLabel}`}
+            {isKidsArcade ? hud.kidsHint : t(hud.coopHint, { bonus: runStatusBonusLabel })}
           </div>
           <div
             style={{
@@ -231,7 +246,7 @@ export default function BottomGameHud() {
               textAlign: 'right',
             }}
           >
-            {isKidsArcade ? 'No lives in arcade mode.' : `${livesGlyph} pressure stays at the top HUD`}
+            {isKidsArcade ? hud.kidsLives : t(hud.livesHint, { glyph: livesGlyph })}
           </div>
         </div>
       </div>
@@ -240,7 +255,7 @@ export default function BottomGameHud() {
 }
 
 function infoCardStyle(
-  ui: ReturnType<typeof getThemeDefinition>['ui'],
+  ui: ThemeUi,
   align: 'left' | 'right',
 ): React.CSSProperties {
   return {

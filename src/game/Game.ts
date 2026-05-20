@@ -4,7 +4,7 @@ import { LevelScene } from '@/game/scenes/LevelScene'
 import { BossScene } from '@/game/scenes/BossScene'
 import { KidsArcadeScene, KIDS_ARCADE_BGM_TRACK } from '@/game/scenes/KidsArcadeScene'
 import { LEVELS } from '@/game/config/levels'
-import { getThemeDefinition } from '@/game/config/theme'
+import { getAppThemeDefinition } from '@/services/appTheme'
 import { AudioSystem } from '@/game/systems/AudioSystem'
 import { useGameStore } from '@/store/gameStore'
 import { trackBossCompleted, trackGameInitFailed } from '@/analytics/events'
@@ -48,7 +48,7 @@ export class Game {
 
     this.initPromise = (async () => {
       try {
-        const themeDef = getThemeDefinition(useGameStore.getState().theme)
+        const themeDef = getAppThemeDefinition()
         await app.init({
           resizeTo: container,
           background: themeDef.colors.bg,
@@ -77,6 +77,20 @@ export class Game {
 
           if (state.soundEnabled !== prev.soundEnabled) {
             this.syncSound()
+          }
+
+          if (
+            state.colorSchemePreference !== prev.colorSchemePreference ||
+            state.theme !== prev.theme
+          ) {
+            this.syncCanvasTheme()
+            if (
+              state.phase === 'playing' ||
+              state.phase === 'boss' ||
+              state.phase === 'kids-arcade'
+            ) {
+              this.startLevel()
+            }
           }
         })
         window.addEventListener('resize', this.handleResize)
@@ -199,6 +213,12 @@ export class Game {
     this.currentBgmTrack = null
   }
 
+  private syncCanvasTheme(): void {
+    if (!this.app) return
+
+    this.app.renderer.background.color = getAppThemeDefinition().colors.bg
+  }
+
   private syncSound(): void {
     if (!this.audio) return
 
@@ -207,5 +227,21 @@ export class Game {
 
     if (!soundEnabled || !this.currentBgmTrack) return
     this.audio.playBgm(this.currentBgmTrack)
+  }
+
+  handlePointerTap(clientX: number, clientY: number): void {
+    if (!this.app?.canvas || !(this.scene instanceof LevelScene)) return
+
+    const { paused, phase } = useGameStore.getState()
+    if (paused || (phase !== 'playing' && phase !== 'boss' && phase !== 'kids-arcade')) return
+
+    const canvas = this.app.canvas
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+
+    const x = ((clientX - rect.left) / rect.width) * this.app.screen.width
+    const y = ((clientY - rect.top) / rect.height) * this.app.screen.height
+
+    this.scene.handleTapAt(x, y)
   }
 }

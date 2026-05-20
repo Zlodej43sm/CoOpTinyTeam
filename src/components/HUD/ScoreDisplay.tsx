@@ -1,11 +1,10 @@
-import { getThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
 import { rem } from '@/ui/typography'
 
 export default function ScoreDisplay() {
   const score = useGameStore((s) => s.score)
-  const theme = useGameStore((s) => s.theme)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
 
   return (
     <div

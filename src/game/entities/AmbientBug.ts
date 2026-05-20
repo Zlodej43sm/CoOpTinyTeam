@@ -1,5 +1,5 @@
 import { Container, Graphics, Rectangle } from 'pixi.js'
-import { getThemeDefinition } from '@/game/config/theme'
+import { getAppThemeDefinition } from '@/services/appTheme'
 import type { ThemeDefinition } from '@/game/config/theme'
 import { Bug } from '@/game/entities/Bug'
 import type { GameTheme } from '@/types'
@@ -25,7 +25,7 @@ export class AmbientBug extends Container {
   constructor(bounds: Rectangle, theme: GameTheme) {
     super()
     this.bounds = bounds.clone()
-    this.themeDef = getThemeDefinition(theme)
+    this.themeDef = getAppThemeDefinition(theme)
 
     this.shadow = new Graphics()
     this.addChild(this.shadow)
