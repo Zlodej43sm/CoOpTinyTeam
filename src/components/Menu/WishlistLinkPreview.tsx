@@ -3,6 +3,7 @@ import type { ThemeDefinition } from '@/game/config/theme'
 import {
   fetchLinkPreview,
   getLinkPreviewHostname,
+  getPreviewImageSrc,
   isDirectImageUrl,
   type LinkPreviewData,
 } from '@/services/linkPreview'
@@ -56,7 +57,7 @@ export function WishlistLinkPreview({
     return <div style={previewSkeletonStyle(ui)} aria-hidden="true" />
   }
 
-  const previewImage = preview?.image && !imageFailed ? preview.image : null
+  const previewImage = preview?.image && !imageFailed ? getPreviewImageSrc(preview.image) : null
 
   if (preview?.kind === 'image' && previewImage) {
     return (
@@ -73,6 +74,7 @@ export function WishlistLinkPreview({
           style={previewImageStyle(ui, locked)}
           loading="lazy"
           decoding="async"
+          referrerPolicy="no-referrer"
           onError={() => setImageFailed(true)}
         />
       </a>
@@ -97,6 +99,7 @@ export function WishlistLinkPreview({
             style={previewCardImageStyle(ui)}
             loading="lazy"
             decoding="async"
+            referrerPolicy="no-referrer"
             onError={() => setImageFailed(true)}
           />
         ) : null}

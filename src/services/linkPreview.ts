@@ -5,7 +5,7 @@ import {
 } from '@/services/linkPreviewShared'
 
 export type { LinkPreviewData } from '@/services/linkPreviewShared'
-export { isDirectImageUrl } from '@/services/linkPreviewShared'
+export { getLinkPreviewHostname, isDirectImageUrl } from '@/services/linkPreviewShared'
 
 export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreviewData | null> {
   const normalized = normalizePreviewUrl(rawUrl)
@@ -42,10 +42,16 @@ export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreviewData 
   }
 }
 
-export function getLinkPreviewHostname(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./i, '')
-  } catch {
-    return url
+export function getPreviewImageSrc(imageUrl: string | undefined): string | undefined {
+  if (!imageUrl) return undefined
+  if (imageUrl.startsWith('/')) return imageUrl
+
+  const normalized = normalizePreviewUrl(imageUrl)
+  if (!normalized) return undefined
+
+  if (normalized.includes('google.com/s2/favicons')) {
+    return normalized
   }
+
+  return `/api/link-preview/image?url=${encodeURIComponent(normalized)}`
 }

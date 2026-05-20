@@ -1,9 +1,13 @@
 import type { Wishlist, WishlistItem } from '@/types'
 import {
+  buildLinkPreviewFallback,
+  canonicalizePreviewFetchUrl,
   isAllowedPreviewUrl,
   isDirectImageUrl,
+  mergeLinkPreviewData,
   normalizePreviewUrl,
   parseLinkPreviewHtml,
+  PREVIEW_FETCH_HEADERS,
 } from '@/services/linkPreviewShared'
 import {
   finalizeParticipantName,
@@ -102,6 +106,10 @@ export default {
       return handleLinkPreview(request)
     }
 
+    if (url.pathname === '/api/link-preview/image') {
+      return handleLinkPreviewImage(request)
+    }
+
     if (isWishlistRoute(url.pathname)) {
       return serveWishlistHtml(request, env)
     }
@@ -142,25 +150,20 @@ async function handleLinkPreview(request: Request): Promise<Response> {
     )
   }
 
+  const fetchUrl = canonicalizePreviewFetchUrl(normalized)
+
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
-    const response = await fetch(normalized, {
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    const response = await fetch(fetchUrl, {
       signal: controller.signal,
       redirect: 'follow',
-      headers: {
-        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-        'user-agent': 'CoOpTinyTeam-LinkPreview/1.0',
-      },
+      headers: PREVIEW_FETCH_HEADERS,
     })
     clearTimeout(timeout)
 
-    if (!response.ok) {
-      return json({ error: 'Failed to fetch preview' }, 502)
-    }
-
     const contentType = response.headers.get('content-type') ?? ''
-    if (contentType.startsWith('image/')) {
+    if (response.ok && contentType.startsWith('image/')) {
       return json(
         { kind: 'image', url: normalized, image: normalized },
         200,
@@ -169,19 +172,78 @@ async function handleLinkPreview(request: Request): Promise<Response> {
     }
 
     const html = (await response.text()).slice(0, 150_000)
-    const preview = parseLinkPreviewHtml(html, normalized)
+    const preview = parseLinkPreviewHtml(html, fetchUrl)
+
+    if (preview.title || preview.description || preview.image) {
+      return json(
+        mergeLinkPreviewData(normalized, preview),
+        200,
+        previewCacheHeaders(),
+      )
+    }
+
+    if (!response.ok) {
+      return json(buildLinkPreviewFallback(normalized), 200, previewCacheHeaders())
+    }
 
     return json(
-      {
-        kind: 'page',
-        url: normalized,
-        ...preview,
-      },
+      mergeLinkPreviewData(normalized, preview),
       200,
       previewCacheHeaders(),
     )
   } catch {
-    return json({ error: 'Failed to fetch preview' }, 502)
+    return json(buildLinkPreviewFallback(normalized), 200, previewCacheHeaders())
+  }
+}
+
+async function handleLinkPreviewImage(request: Request): Promise<Response> {
+  if (request.method !== 'GET') {
+    return json({ error: 'Method not allowed' }, 405)
+  }
+
+  const url = new URL(request.url)
+  const targetUrl = url.searchParams.get('url')
+  if (!targetUrl) {
+    return json({ error: 'Missing url' }, 400)
+  }
+
+  const normalized = normalizePreviewUrl(targetUrl)
+  if (!normalized || !isAllowedPreviewUrl(normalized)) {
+    return json({ error: 'Invalid url' }, 400)
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12000)
+    const response = await fetch(normalized, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: {
+        ...PREVIEW_FETCH_HEADERS,
+        accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        referer: new URL(normalized).origin,
+      },
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      return new Response(null, { status: 404 })
+    }
+
+    const contentType = response.headers.get('content-type') ?? 'application/octet-stream'
+    if (!contentType.startsWith('image/')) {
+      return new Response(null, { status: 415 })
+    }
+
+    return new Response(await response.arrayBuffer(), {
+      status: 200,
+      headers: {
+        'content-type': contentType,
+        'cache-control': 'public, max-age=86400, stale-while-revalidate=604800',
+      },
+    })
+  } catch {
+    return new Response(null, { status: 502 })
   }
 }
 
