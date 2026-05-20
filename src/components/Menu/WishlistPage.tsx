@@ -2139,7 +2139,6 @@ function itemTitleStyle(ui: WishlistUi, locked: boolean): CSSProperties {
     textDecoration: locked ? 'line-through' : 'none',
     textDecorationThickness: locked ? 2 : undefined,
     opacity: locked ? 0.68 : 1,
-    whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   }
