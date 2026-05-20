@@ -47,6 +47,7 @@ type WishlistItemInput = {
   title: string
   link: string
   description: string
+  image?: string | null
 }
 
 type WishlistApiResponse = {
@@ -274,6 +275,7 @@ export async function addWishlistItem(
     title: sanitized.title,
     link: sanitized.link,
     description: sanitized.description,
+    image: sanitized.image,
     selectedBy: null,
     createdAt: now,
     updatedAt: now,
@@ -316,6 +318,7 @@ export async function updateWishlistItem(
           title: sanitized.title,
           link: sanitized.link,
           description: sanitized.description,
+          image: sanitized.image,
           updatedAt: now,
         }
         : item

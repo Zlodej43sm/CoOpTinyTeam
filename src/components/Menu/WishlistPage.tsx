@@ -44,6 +44,7 @@ import type { Messages } from '@/i18n/types'
 import { formatMessage } from '@/i18n'
 import { trackNavigationClick } from '@/analytics/events'
 import { WishlistLinkPreview } from '@/components/Menu/WishlistLinkPreview'
+import { WishlistItemImageField, WishlistItemPhoto } from '@/components/Menu/WishlistItemImageField'
 
 type WishlistMode = 'cloud' | 'local'
 type WishlistUi = ThemeDefinition['ui']
@@ -75,6 +76,7 @@ const EMPTY_ITEM_DRAFT = {
   title: '',
   link: '',
   description: '',
+  image: null as string | null,
 }
 
 const WISHLIST_UI_DARK: WishlistUi = {
@@ -441,7 +443,10 @@ export default function WishlistPage() {
     setBusyAction(null)
   }
 
-  async function handleEditItem(item: WishlistItem, input: { title: string; link: string; description: string }) {
+  async function handleEditItem(
+    item: WishlistItem,
+    input: { title: string; link: string; description: string; image: string | null },
+  ) {
     if (!wishlist) return
 
     if (!access.canEdit) {
@@ -753,6 +758,7 @@ export default function WishlistPage() {
               onDelete={() => handleDeleteItem(item)}
               onClaim={() => handleClaim(item)}
               onRelease={() => handleRelease(item)}
+              onImageError={setNotice}
             />
           ))
         )}
@@ -1101,6 +1107,13 @@ export default function WishlistPage() {
                   disabled={!access.canEdit}
                 />
               </label>
+              <WishlistItemImageField
+                ui={ui}
+                value={itemDraft.image}
+                onChange={(image) => setItemDraft((draft) => ({ ...draft, image }))}
+                onError={setNotice}
+                disabled={!access.canEdit}
+              />
               <label style={fieldStyle}>
                 <span style={labelStyle(ui)}>{wl.notes}</span>
                 <textarea
@@ -1296,16 +1309,18 @@ function WishlistItemCard({
   onDelete,
   onClaim,
   onRelease,
+  onImageError,
 }: {
   item: WishlistItem
   ui: WishlistUi
   canEdit: boolean
   participantName: string
   busyAction: BusyAction
-  onSave: (input: { title: string; link: string; description: string }) => void
+  onSave: (input: { title: string; link: string; description: string; image: string | null }) => void
   onDelete: () => void
   onClaim: () => void
   onRelease: () => void
+  onImageError: (message: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const { messages, t } = useTranslation()
@@ -1315,6 +1330,7 @@ function WishlistItemCard({
     title: item.title,
     link: item.link,
     description: item.description,
+    image: item.image ?? null,
   }))
   const currentName = participantName.trim()
   const selectedByMe = item.selectedBy !== null && item.selectedBy === currentName
@@ -1332,9 +1348,10 @@ function WishlistItemCard({
         title: item.title,
         link: item.link,
         description: item.description,
+        image: item.image ?? null,
       })
     }
-  }, [editing, item.description, item.link, item.title])
+  }, [editing, item.description, item.image, item.link, item.title])
 
   return (
     <article style={itemCardStyle(ui, selectedByOther)}>
@@ -1373,6 +1390,13 @@ function WishlistItemCard({
               inputMode="url"
             />
           </label>
+          <WishlistItemImageField
+            ui={ui}
+            value={draft.image}
+            onChange={(image) => setDraft((next) => ({ ...next, image }))}
+            onError={onImageError}
+            compact
+          />
           <label style={fieldStyle}>
             <span style={labelStyle(ui)}>{wl.notes}</span>
             <textarea
@@ -1443,7 +1467,23 @@ function WishlistItemCard({
               <h2 style={itemTitleStyle(ui, selectedByOther)} title={item.title}>{item.title}</h2>
             </div>
 
-            {href ? (
+            {item.image ? (
+              href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={itemPhotoLinkStyle(selectedByOther)}
+                  aria-label={wl.openLink}
+                >
+                  <WishlistItemPhoto ui={ui} src={item.image} locked={selectedByOther} />
+                </a>
+              ) : (
+                <WishlistItemPhoto ui={ui} src={item.image} locked={selectedByOther} />
+              )
+            ) : null}
+
+            {!item.image && href ? (
               <WishlistLinkPreview href={href} ui={ui} locked={selectedByOther} />
             ) : null}
           </div>
@@ -1493,11 +1533,12 @@ function WishlistItemCard({
 function createEmptyItemDraft(
   wishlist: Wishlist,
   wl: Messages['wishlist'],
-): { title: string; link: string; description: string } {
+): { title: string; link: string; description: string; image: string | null } {
   return {
     title: formatMessage(wl.defaultItemTitle, { n: wishlist.items.length + 1 }),
     link: '',
     description: '',
+    image: null,
   }
 }
 
@@ -2182,6 +2223,16 @@ function descriptionToggleStyle(ui: WishlistUi): CSSProperties {
     fontSize: '0.88rem',
     fontWeight: 700,
     padding: 0,
+  }
+}
+
+function itemPhotoLinkStyle(locked: boolean): CSSProperties {
+  return {
+    display: 'block',
+    lineHeight: 0,
+    marginBottom: '0.65rem',
+    textDecoration: locked ? 'line-through' : 'none',
+    opacity: locked ? 0.78 : 1,
   }
 }
 

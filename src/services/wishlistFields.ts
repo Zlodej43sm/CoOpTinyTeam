@@ -9,10 +9,13 @@ export const WISHLIST_FIELD_LIMITS = {
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g
 const TAG_LIKE = /<[^>]*>/g
 
+import { normalizeWishlistLogoDataUrl } from '@/services/wishlistLogo'
+
 export type WishlistItemFieldInput = {
   title: string
   link: string
   description: string
+  image?: string | null
 }
 
 function stripUnsafeText(value: string, multiline = false): string {
@@ -76,13 +79,21 @@ export function finalizeItemLink(value: string): string {
   return normalized || sanitized
 }
 
-export function sanitizeWishlistItemInput(input: WishlistItemFieldInput): WishlistItemFieldInput {
+export function sanitizeWishlistItemInput(input: WishlistItemFieldInput): WishlistItemFieldInput & {
+  image: string | null
+} {
+  let image: string | null = null
+  if (input.image !== undefined && input.image !== null && input.image.trim().length > 0) {
+    image = normalizeWishlistLogoDataUrl(input.image)
+  }
+
   return {
     title: finalizePlainText(input.title, WISHLIST_FIELD_LIMITS.itemTitle),
     link: finalizeItemLink(input.link),
     description: finalizePlainText(input.description, WISHLIST_FIELD_LIMITS.itemDescription, {
       multiline: true,
     }),
+    image,
   }
 }
 
