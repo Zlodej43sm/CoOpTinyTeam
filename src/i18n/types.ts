@@ -186,6 +186,11 @@ export type Messages = {
     itemsAriaLabel: string
     shareAriaLabel: string
     openSharedAriaLabel: string
+    itemPhotoLabel: string
+    uploadItemPhoto: string
+    changeItemPhoto: string
+    removeItemPhoto: string
+    itemPhotoHint: string
     logoLabel: string
     uploadLogo: string
     changeLogo: string

@@ -45,6 +45,7 @@ export interface WishlistItem {
   title: string
   link: string
   description: string
+  image?: string | null
   selectedBy: string | null
   createdAt: string
   updatedAt: string

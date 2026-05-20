@@ -68,6 +68,7 @@ type WishlistItemRow = {
   title: string | null
   link: string | null
   description: string | null
+  image: string | null
   selected_by: string | null
   created_at: string | null
   updated_at: string | null
@@ -552,6 +553,7 @@ async function updateWishlistItem(
     title: input.title ?? '',
     link: input.link ?? '',
     description: input.description ?? '',
+    image: input.image ?? null,
   })
 
   if (!sanitized.title) {
@@ -560,12 +562,13 @@ async function updateWishlistItem(
 
   const result = await db.prepare(`
     update wishlist_items
-    set title = ?, link = ?, description = ?, updated_at = ?, last_used_at = ?
+    set title = ?, link = ?, description = ?, image = ?, updated_at = ?, last_used_at = ?
     where wishlist_id = ? and id = ?
   `).bind(
     sanitized.title,
     sanitized.link,
     sanitized.description,
+    sanitized.image,
     now,
     now,
     wishlistId,
@@ -658,6 +661,7 @@ async function insertWishlistItem(
     title: input.title ?? '',
     link: input.link ?? '',
     description: input.description ?? '',
+    image: input.image ?? null,
   })
 
   if (!sanitized.title) {
@@ -671,16 +675,18 @@ async function insertWishlistItem(
       title,
       link,
       description,
+      image,
       selected_by,
       created_at,
       updated_at,
       last_used_at
     )
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     on conflict(id) do update set
       title = excluded.title,
       link = excluded.link,
       description = excluded.description,
+      image = excluded.image,
       selected_by = excluded.selected_by,
       updated_at = excluded.updated_at,
       last_used_at = excluded.last_used_at
@@ -690,6 +696,7 @@ async function insertWishlistItem(
     sanitized.title,
     sanitized.link,
     sanitized.description,
+    sanitized.image,
     input.selectedBy ?? null,
     input.createdAt ?? now,
     now,
@@ -715,7 +722,7 @@ async function loadWishlist(
   if (!wishlistRow) return null
 
   const itemRows = await db.prepare(`
-    select id, title, link, description, selected_by, created_at, updated_at
+    select id, title, link, description, image, selected_by, created_at, updated_at
     from wishlist_items
     where wishlist_id = ?
     order by created_at asc
@@ -786,6 +793,7 @@ function mapWishlist(row: WishlistRow, itemRows: WishlistItemRow[]): Wishlist {
       title: item.title ?? 'Gift item',
       link: item.link ?? '',
       description: item.description ?? '',
+      image: item.image ?? null,
       selectedBy: item.selected_by,
       createdAt: item.created_at ?? now,
       updatedAt: item.updated_at ?? now,
