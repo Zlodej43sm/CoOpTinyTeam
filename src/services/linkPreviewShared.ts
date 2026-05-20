@@ -10,6 +10,7 @@ export type LinkPreviewData = {
 const IMAGE_EXTENSION_PATTERN = /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(\?|#|$)/i
 
 const PREVIEW_CANONICAL_HOSTS = new Set([
+  'ceneo.pl',
   'empik.com',
   'allegro.pl',
   'allegro.com',
@@ -25,12 +26,34 @@ const TRACKING_QUERY_PREFIXES = [
   'ref',
 ]
 
+export const PREVIEW_MOBILE_FETCH_HEADERS: HeadersInit = {
+  accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'accept-language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
+  'user-agent':
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+}
+
 export const PREVIEW_FETCH_HEADERS: HeadersInit = {
   accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
   'accept-language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
   'user-agent':
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
 }
+
+export type PreviewFetchAttempt = {
+  url: string
+  headers: HeadersInit
+}
+
+const GENERIC_PREVIEW_TITLE_PATTERNS = [
+  /^Ceneo - porównanie cen/i,
+  /^Allegro - największy/i,
+  /^Empik\.com/i,
+  /^Just a moment/i,
+  /^Attention Required/i,
+  /^Access denied/i,
+  /^403 Forbidden/i,
+]
 
 export function isDirectImageUrl(url: string): boolean {
   try {
@@ -172,17 +195,107 @@ export function getLinkPreviewHostname(url: string): string {
   }
 }
 
+export function isGenericPreviewTitle(title: string | undefined): boolean {
+  if (!title) return false
+  return GENERIC_PREVIEW_TITLE_PATTERNS.some((pattern) => pattern.test(title))
+}
+
+export function isWeakPreviewResult(
+  preview: Pick<LinkPreviewData, 'title' | 'description' | 'image' | 'siteName'>,
+  url: string,
+): boolean {
+  if (preview.image) return false
+  if (isGenericPreviewTitle(preview.title)) return true
+
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace(/^www\./, '')
+
+    if (host === 'ceneo.pl' && /\/\d+\/?$/.test(parsed.pathname)) {
+      return true
+    }
+
+    if ((host === 'allegro.pl' || host === 'allegro.com') && parsed.pathname.includes('/oferta/')) {
+      return true
+    }
+  } catch {
+    return !preview.title && !preview.description
+  }
+
+  return !preview.title && !preview.description
+}
+
+export function sanitizeBlockedPreview(
+  preview: Pick<LinkPreviewData, 'title' | 'description' | 'image' | 'siteName'>,
+): Pick<LinkPreviewData, 'title' | 'description' | 'image' | 'siteName'> {
+  const title = isGenericPreviewTitle(preview.title) ? undefined : preview.title
+  const description = title ? preview.description : (
+    preview.image ? preview.description : undefined
+  )
+
+  return {
+    title,
+    description,
+    image: preview.image,
+    siteName: preview.siteName,
+  }
+}
+
+export function getPreviewFetchAttempts(url: string): PreviewFetchAttempt[] {
+  const fetchUrl = canonicalizePreviewFetchUrl(url)
+  const attempts: PreviewFetchAttempt[] = [{ url: fetchUrl, headers: PREVIEW_FETCH_HEADERS }]
+
+  try {
+    const parsed = new URL(fetchUrl)
+    const host = parsed.hostname.replace(/^www\./, '')
+
+    if (host === 'ceneo.pl') {
+      const productId = parsed.pathname.match(/(\d+)/)?.[1]
+      if (productId) {
+        attempts.push(
+          { url: `https://m.ceneo.pl/${productId}`, headers: PREVIEW_MOBILE_FETCH_HEADERS },
+          { url: fetchUrl, headers: PREVIEW_MOBILE_FETCH_HEADERS },
+        )
+      }
+    }
+
+    if (host === 'allegro.pl' || host === 'allegro.com') {
+      attempts.push({ url: fetchUrl, headers: PREVIEW_MOBILE_FETCH_HEADERS })
+    }
+  } catch {
+    // keep default attempt only
+  }
+
+  return dedupePreviewFetchAttempts(attempts)
+}
+
+export function enrichPreviewFromHtml(
+  preview: Pick<LinkPreviewData, 'title' | 'description' | 'image' | 'siteName'>,
+  html: string,
+  pageUrl: string,
+): Pick<LinkPreviewData, 'title' | 'description' | 'image' | 'siteName'> {
+  const next = { ...preview }
+
+  if (!next.image) {
+    next.image = extractSiteSpecificImage(html, pageUrl)
+  }
+
+  return sanitizeBlockedPreview(next)
+}
+
 export function parseLinkPreviewHtml(
   html: string,
   pageUrl: string,
 ): Pick<LinkPreviewData, 'title' | 'description' | 'image' | 'siteName'> {
   const jsonLd = parseJsonLdPreview(html, pageUrl)
 
-  const title =
+  const rawTitle =
     extractMetaContent(html, 'property', 'og:title')
     || extractMetaContent(html, 'name', 'twitter:title')
     || jsonLd.title
-    || decodeHtmlEntities(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? '')
+
+  const documentTitle = decodeHtmlEntities(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? '')
+  const title = rawTitle || (isGenericPreviewTitle(documentTitle) ? '' : documentTitle)
 
   const description =
     extractMetaContent(html, 'property', 'og:description')
@@ -205,12 +318,12 @@ export function parseLinkPreviewHtml(
     extractMetaContent(html, 'property', 'og:site_name')
     || jsonLd.siteName
 
-  return {
+  return sanitizeBlockedPreview({
     title: title || undefined,
     description: description || undefined,
-    image: image || undefined,
+    image: image || extractSiteSpecificImage(html, pageUrl),
     siteName: siteName || undefined,
-  }
+  })
 }
 
 export function mergeLinkPreviewData(
@@ -227,6 +340,43 @@ export function mergeLinkPreviewData(
     image: preview.image || fallback.image,
     siteName: preview.siteName || fallback.siteName,
   }
+}
+
+function extractSiteSpecificImage(html: string, pageUrl: string): string | undefined {
+  try {
+    const parsed = new URL(pageUrl)
+    const host = parsed.hostname.replace(/^www\./, '')
+
+    if (host === 'ceneo.pl') {
+      const productId = parsed.pathname.match(/(\d+)/)?.[1]
+      if (productId) {
+        const match = html.match(
+          new RegExp(`https://image\\.ceneostatic\\.pl/data/products/${productId}/[^"'\\s<]+`, 'i'),
+        )
+        if (match?.[0]) {
+          return match[0]
+        }
+      }
+    }
+  } catch {
+    return undefined
+  }
+
+  return undefined
+}
+
+function dedupePreviewFetchAttempts(attempts: PreviewFetchAttempt[]): PreviewFetchAttempt[] {
+  const seen = new Set<string>()
+  const deduped: PreviewFetchAttempt[] = []
+
+  for (const attempt of attempts) {
+    const key = `${attempt.url}|${JSON.stringify(attempt.headers)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(attempt)
+  }
+
+  return deduped
 }
 
 function extractLinkTagHref(html: string, rel: string): string {

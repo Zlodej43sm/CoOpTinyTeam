@@ -1,13 +1,15 @@
 import type { Wishlist, WishlistItem } from '@/types'
 import {
   buildLinkPreviewFallback,
-  canonicalizePreviewFetchUrl,
+  getPreviewFetchAttempts,
   isAllowedPreviewUrl,
   isDirectImageUrl,
+  isWeakPreviewResult,
   mergeLinkPreviewData,
   normalizePreviewUrl,
   parseLinkPreviewHtml,
   PREVIEW_FETCH_HEADERS,
+  type PreviewFetchAttempt,
 } from '@/services/linkPreviewShared'
 import {
   finalizeParticipantName,
@@ -150,29 +152,8 @@ async function handleLinkPreview(request: Request): Promise<Response> {
     )
   }
 
-  const fetchUrl = canonicalizePreviewFetchUrl(normalized)
-
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
-    const response = await fetch(fetchUrl, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: PREVIEW_FETCH_HEADERS,
-    })
-    clearTimeout(timeout)
-
-    const contentType = response.headers.get('content-type') ?? ''
-    if (response.ok && contentType.startsWith('image/')) {
-      return json(
-        { kind: 'image', url: normalized, image: normalized },
-        200,
-        previewCacheHeaders(),
-      )
-    }
-
-    const html = (await response.text()).slice(0, 150_000)
-    const preview = parseLinkPreviewHtml(html, fetchUrl)
+    const preview = await fetchBestLinkPreview(normalized, getPreviewFetchAttempts(normalized))
 
     if (preview.title || preview.description || preview.image) {
       return json(
@@ -182,17 +163,69 @@ async function handleLinkPreview(request: Request): Promise<Response> {
       )
     }
 
-    if (!response.ok) {
-      return json(buildLinkPreviewFallback(normalized), 200, previewCacheHeaders())
-    }
-
-    return json(
-      mergeLinkPreviewData(normalized, preview),
-      200,
-      previewCacheHeaders(),
-    )
+    return json(buildLinkPreviewFallback(normalized), 200, previewCacheHeaders())
   } catch {
     return json(buildLinkPreviewFallback(normalized), 200, previewCacheHeaders())
+  }
+}
+
+async function fetchBestLinkPreview(
+  normalizedUrl: string,
+  attempts: PreviewFetchAttempt[],
+): Promise<ReturnType<typeof parseLinkPreviewHtml>> {
+  let bestPreview: ReturnType<typeof parseLinkPreviewHtml> = {}
+
+  for (const attempt of attempts) {
+    const preview = await fetchLinkPreviewAttempt(attempt)
+    if (!preview) continue
+
+    if (!isWeakPreviewResult(preview, normalizedUrl)) {
+      return preview
+    }
+
+    if (
+      (preview.image && !bestPreview.image)
+      || (preview.title && !bestPreview.title)
+      || (preview.description && !bestPreview.description)
+    ) {
+      bestPreview = {
+        title: bestPreview.title || preview.title,
+        description: bestPreview.description || preview.description,
+        image: bestPreview.image || preview.image,
+        siteName: bestPreview.siteName || preview.siteName,
+      }
+    }
+  }
+
+  return bestPreview
+}
+
+async function fetchLinkPreviewAttempt(
+  attempt: PreviewFetchAttempt,
+): Promise<ReturnType<typeof parseLinkPreviewHtml> | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    const response = await fetch(attempt.url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: attempt.headers,
+    })
+    clearTimeout(timeout)
+
+    const contentType = response.headers.get('content-type') ?? ''
+    if (response.ok && contentType.startsWith('image/')) {
+      return {
+        image: attempt.url,
+      }
+    }
+
+    const html = (await response.text()).slice(0, 150_000)
+    if (!html) return null
+
+    return parseLinkPreviewHtml(html, attempt.url)
+  } catch {
+    return null
   }
 }
 
