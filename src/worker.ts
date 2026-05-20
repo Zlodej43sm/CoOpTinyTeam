@@ -1,5 +1,11 @@
 import type { Wishlist, WishlistItem } from '@/types'
 import {
+  isAllowedPreviewUrl,
+  isDirectImageUrl,
+  normalizePreviewUrl,
+  parseLinkPreviewHtml,
+} from '@/services/linkPreviewShared'
+import {
   finalizeParticipantName,
   finalizeWishlistName,
   sanitizeWishlistItemInput,
@@ -92,6 +98,10 @@ export default {
       return handleWishlistApi(request, env)
     }
 
+    if (url.pathname === '/api/link-preview') {
+      return handleLinkPreview(request)
+    }
+
     if (isWishlistRoute(url.pathname)) {
       return serveWishlistHtml(request, env)
     }
@@ -102,6 +112,83 @@ export default {
   async scheduled(_controller: ScheduledCtrl, env: Env, ctx: ExecutionCtx): Promise<void> {
     ctx.waitUntil(cleanupExpiredData(env.WISHLIST_DB))
   },
+}
+
+async function handleLinkPreview(request: Request): Promise<Response> {
+  if (request.method !== 'GET') {
+    return json({ error: 'Method not allowed' }, 405)
+  }
+
+  const url = new URL(request.url)
+  const targetUrl = url.searchParams.get('url')
+  if (!targetUrl) {
+    return json({ error: 'Missing url' }, 400)
+  }
+
+  const normalized = normalizePreviewUrl(targetUrl)
+  if (!normalized) {
+    return json({ error: 'Invalid url' }, 400)
+  }
+
+  if (!isAllowedPreviewUrl(normalized)) {
+    return json({ error: 'Blocked url' }, 403)
+  }
+
+  if (isDirectImageUrl(normalized)) {
+    return json(
+      { kind: 'image', url: normalized, image: normalized },
+      200,
+      previewCacheHeaders(),
+    )
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    const response = await fetch(normalized, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: {
+        accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+        'user-agent': 'CoOpTinyTeam-LinkPreview/1.0',
+      },
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      return json({ error: 'Failed to fetch preview' }, 502)
+    }
+
+    const contentType = response.headers.get('content-type') ?? ''
+    if (contentType.startsWith('image/')) {
+      return json(
+        { kind: 'image', url: normalized, image: normalized },
+        200,
+        previewCacheHeaders(),
+      )
+    }
+
+    const html = (await response.text()).slice(0, 150_000)
+    const preview = parseLinkPreviewHtml(html, normalized)
+
+    return json(
+      {
+        kind: 'page',
+        url: normalized,
+        ...preview,
+      },
+      200,
+      previewCacheHeaders(),
+    )
+  } catch {
+    return json({ error: 'Failed to fetch preview' }, 502)
+  }
+}
+
+function previewCacheHeaders(): HeadersInit {
+  return {
+    'cache-control': 'public, max-age=3600, stale-while-revalidate=86400',
+  }
 }
 
 async function serveWishlistHtml(request: Request, env: Env): Promise<Response> {
@@ -619,11 +706,12 @@ async function readJson<T>(request: Request): Promise<T> {
   }
 }
 
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200, headers: HeadersInit = {}): Response {
   return Response.json(data, {
     status,
     headers: {
       'cache-control': 'no-store',
+      ...headers,
     },
   })
 }

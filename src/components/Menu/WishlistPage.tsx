@@ -43,6 +43,7 @@ import type { Wishlist, WishlistAccess, WishlistItem } from '@/types'
 import type { Messages } from '@/i18n/types'
 import { formatMessage } from '@/i18n'
 import { trackNavigationClick } from '@/analytics/events'
+import { WishlistLinkPreview } from '@/components/Menu/WishlistLinkPreview'
 
 type WishlistMode = 'cloud' | 'local'
 type WishlistUi = ThemeDefinition['ui']
@@ -1409,7 +1410,11 @@ function WishlistItemCard({
       ) : (
         <>
           <div>
-            {canEdit && (
+            <div style={itemIconToolbarStyle}>
+              <div style={pillStyle(item.selectedBy ? ui.warning : ui.accent)}>
+                {item.selectedBy ? wl.itemSelected : wl.itemOpen}
+              </div>
+              {canEdit && (
               <div style={itemIconToolbarStyle}>
                 <IconActionButton
                   ui={ui}
@@ -1430,21 +1435,16 @@ function WishlistItemCard({
                 >
                   <TrashIcon />
                 </IconActionButton>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+
             <div style={itemCardTopStyle}>
-              <h2 style={itemTitleStyle(ui, selectedByOther)}>{item.title}</h2>
-              <div style={itemCardHeaderActionsStyle}>
-              <span style={pillStyle(item.selectedBy ? ui.warning : ui.accent)}>
-                {item.selectedBy ? wl.itemSelected : wl.itemOpen}
-              </span>
-              </div>
+              <h2 style={itemTitleStyle(ui, selectedByOther)} title={item.title}>{item.title}</h2>
             </div>
 
             {href ? (
-              <a href={href} target="_blank" rel="noreferrer" style={itemLinkStyle(ui, selectedByOther)}>
-                {wl.openLink}
-              </a>
+              <WishlistLinkPreview href={href} ui={ui} locked={selectedByOther} />
             ) : null}
           </div>
 
@@ -2084,25 +2084,15 @@ const itemCardTopStyle: CSSProperties = {
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: '0.7rem',
-}
-
-const itemCardHeaderActionsStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-  gap: '0.55rem',
-  flexShrink: 0,
-  marginLeft: 'auto',
+  marginBottom: '0.7rem',
+  marginTop: '0.7rem',
 }
 
 const itemIconToolbarStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'flex-end',
+  justifyContent: 'space-between',
   gap: '0.35rem',
-  position: 'absolute',
-  top: '-.70rem',
-  right: '-.70rem',
 }
 
 function logoHomeButtonStyle(): CSSProperties {
@@ -2122,9 +2112,9 @@ function iconActionButtonStyle(
   tone: 'neutral' | 'danger',
 ): CSSProperties {
   return {
-    width: 24,
-    height: 24,
-    minHeight: 24,
+    width: 28,
+    height: 28,
+    minHeight: 28,
     padding: 0,
     display: 'inline-flex',
     alignItems: 'center',
@@ -2149,6 +2139,9 @@ function itemTitleStyle(ui: WishlistUi, locked: boolean): CSSProperties {
     textDecoration: locked ? 'line-through' : 'none',
     textDecorationThickness: locked ? 2 : undefined,
     opacity: locked ? 0.68 : 1,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   }
 }
 
@@ -2190,17 +2183,6 @@ function descriptionToggleStyle(ui: WishlistUi): CSSProperties {
     fontSize: '0.88rem',
     fontWeight: 700,
     padding: 0,
-  }
-}
-
-function itemLinkStyle(ui: WishlistUi, locked: boolean): CSSProperties {
-  return {
-    color: ui.secondary,
-    fontSize: '0.92rem',
-    fontWeight: 700,
-    letterSpacing: 0,
-    textDecoration: locked ? 'line-through' : 'none',
-    opacity: locked ? 0.7 : 1,
   }
 }
 
