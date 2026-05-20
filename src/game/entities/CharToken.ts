@@ -1,5 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js'
-import { getThemeDefinition } from '@/game/config/theme'
+import { getAppThemeDefinition } from '@/services/appTheme'
 import type { ThemeDefinition } from '@/game/config/theme'
 import type { GameTheme } from '@/types'
 
@@ -20,7 +20,7 @@ export class CharToken extends Container {
   constructor(char: string, theme: GameTheme) {
     super()
     this.char = char
-    this.themeDef = getThemeDefinition(theme)
+    this.themeDef = getAppThemeDefinition(theme)
     this.baseColor = pickSyntaxColor(this.themeDef.syntaxColors)
 
     this.keyBurst = new Graphics()

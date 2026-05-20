@@ -1,5 +1,6 @@
 import { LEVELS } from '@/game/config/levels'
-import type { GameTheme } from '@/types'
+import { getCurrentMessages } from '@/hooks/useTranslation'
+import type { ColorScheme, GameTheme } from '@/types'
 
 type ThemeColors = {
   bg: number
@@ -26,7 +27,7 @@ type ThemeColors = {
   bossWarning: number
 }
 
-type ThemeUi = {
+export type ThemeUi = {
   appBackground: string
   panelBorder: string
   panelBackground: string
@@ -335,16 +336,201 @@ const TRADING_THEME: ThemeDefinition = {
   livesGlyph: '▼',
 }
 
+const DEV_COLORS_LIGHT: ThemeColors = {
+  bg: 0xeef5f8,
+  gridLine: 0xb8d0d8,
+  activeChar: 0x0a2228,
+  activeCharBorder: 0xc4384f,
+  timerFull: 0x146b44,
+  timerMid: 0x9a6800,
+  timerLow: 0xa82f44,
+  timerTrack: 0xc5d9e0,
+  challengeBg: 0xd5e8ef,
+  bugColor: 0xc4384f,
+  scanline: 0x94b0ba,
+  divider: 0x94b0ba,
+  deployTrack: 0xcde3ea,
+  deployTrackBorder: 0x4a7a86,
+  progressIdle: 0x6d8a92,
+  progressHot: 0x146b44,
+  keyBurstOuter: 0xc4384f,
+  keyBurstInner: 0x146b44,
+  keyBurstRing: 0x0a2228,
+  squashFlash: 0x9a6800,
+  bossVignette: 0xc4384f,
+  bossWarning: 0xa82f44,
+}
+
+const TRADING_COLORS_LIGHT: ThemeColors = {
+  bg: 0xeaf6f8,
+  gridLine: 0xadcdd6,
+  activeChar: 0x081e24,
+  activeCharBorder: 0x9f1239,
+  timerFull: 0x116032,
+  timerMid: 0x92400e,
+  timerLow: 0x9f1239,
+  timerTrack: 0xbfd9e0,
+  challengeBg: 0xd0e9ef,
+  bugColor: 0x9f1239,
+  scanline: 0x8fb0ba,
+  divider: 0x8fb0ba,
+  deployTrack: 0xc6e0e8,
+  deployTrackBorder: 0x3d7280,
+  progressIdle: 0x648890,
+  progressHot: 0x116032,
+  keyBurstOuter: 0x9f1239,
+  keyBurstInner: 0x116032,
+  keyBurstRing: 0x081e24,
+  squashFlash: 0x92400e,
+  bossVignette: 0x9f1239,
+  bossWarning: 0xbe123c,
+}
+
+const DEV_SYNTAX_LIGHT: readonly number[] = [
+  0x1d4ed8,
+  0x15803d,
+  0x166534,
+  0x0369a1,
+  0x334155,
+  0x7c3aed,
+  0xa16207,
+  0x0f766e,
+] as const
+
+const TRADING_SYNTAX_LIGHT: readonly number[] = [
+  0x0369a1,
+  0x15803d,
+  0x166534,
+  0x1d4ed8,
+  0x334155,
+  0x7c3aed,
+  0xb45309,
+  0x0f766e,
+] as const
+
+const LIGHT_COLORS: Record<GameTheme, ThemeColors> = {
+  dev: DEV_COLORS_LIGHT,
+  trading: TRADING_COLORS_LIGHT,
+}
+
+const LIGHT_SYNTAX: Record<GameTheme, readonly number[]> = {
+  dev: DEV_SYNTAX_LIGHT,
+  trading: TRADING_SYNTAX_LIGHT,
+}
+
+const DEV_UI_LIGHT: ThemeUi = {
+  appBackground:
+    'radial-gradient(circle at 18% 12%, rgba(109, 220, 255, 0.24) 0%, rgba(109, 220, 255, 0) 28%), radial-gradient(circle at 82% 10%, rgba(255, 216, 112, 0.2) 0%, rgba(255, 216, 112, 0) 26%), radial-gradient(circle at top, rgba(244, 250, 252, 1) 0%, rgba(228, 241, 245, 0.98) 48%, rgba(210, 228, 234, 1) 100%)',
+  panelBorder: 'rgba(16, 78, 92, 0.28)',
+  panelBackground:
+    'linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 250, 252, 0.98) 100%)',
+  panelShadow: '0 20px 48px rgba(24, 52, 68, 0.12), 0 0 28px rgba(109, 220, 255, 0.1)',
+  text: '#0a2228',
+  muted: '#2a454c',
+  accent: '#146b44',
+  secondary: '#0a6280',
+  warning: '#9a6800',
+  danger: '#a82f44',
+  logoGlow: 'drop-shadow(0 0 12px rgba(24, 132, 90, 0.25)) drop-shadow(0 0 18px rgba(109, 220, 255, 0.18))',
+  hudGradient:
+    'linear-gradient(to bottom, rgba(244, 250, 252, 0.92) 0%, rgba(244, 250, 252, 0.28) 72%, transparent 100%)',
+  controlBg: 'rgba(255, 255, 255, 0.94)',
+  score: '#146b44',
+  scoreShadow: '0 0 8px rgba(20, 107, 68, 0.35)',
+  badge: '#0a6280',
+  badgeShadow: '0 0 10px rgba(10, 98, 128, 0.25)',
+  livesColor: '#a82f44',
+  livesBackground: 'rgba(255, 220, 225, 0.72)',
+  livesBorder: 'rgba(168, 47, 68, 0.36)',
+  livesShadow: '0 0 10px rgba(168, 47, 68, 0.35)',
+  subtleBorder: 'rgba(10, 34, 40, 0.22)',
+  inactiveButtonBorder: 'rgba(42, 69, 76, 0.45)',
+  inactiveButtonColor: '#254047',
+  selectorBackground: 'rgba(10, 34, 40, 0.06)',
+}
+
+const TRADING_UI_LIGHT: ThemeUi = {
+  appBackground:
+    'radial-gradient(circle at top, rgba(230, 246, 250, 1) 0%, rgba(215, 236, 242, 0.98) 40%, rgba(200, 225, 232, 1) 100%)',
+  panelBorder: 'rgba(12, 88, 122, 0.28)',
+  panelBackground:
+    'linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 250, 252, 0.98) 100%)',
+  panelShadow: '0 20px 48px rgba(24, 52, 68, 0.12), 0 0 24px rgba(94, 200, 255, 0.12)',
+  text: '#081e24',
+  muted: '#2a454c',
+  accent: '#116032',
+  secondary: '#055985',
+  warning: '#92400e',
+  danger: '#9f1239',
+  logoGlow: 'drop-shadow(0 0 12px rgba(94, 200, 255, 0.28))',
+  hudGradient:
+    'linear-gradient(to bottom, rgba(244, 250, 252, 0.92) 0%, rgba(244, 250, 252, 0.28) 72%, transparent 100%)',
+  controlBg: 'rgba(255, 255, 255, 0.94)',
+  score: '#116032',
+  scoreShadow: '0 0 8px rgba(17, 96, 50, 0.35)',
+  badge: '#055985',
+  badgeShadow: '0 0 10px rgba(5, 89, 133, 0.25)',
+  livesColor: '#9f1239',
+  livesBackground: 'rgba(255, 220, 225, 0.72)',
+  livesBorder: 'rgba(159, 18, 57, 0.36)',
+  livesShadow: '0 0 10px rgba(159, 18, 57, 0.35)',
+  subtleBorder: 'rgba(10, 34, 40, 0.22)',
+  inactiveButtonBorder: 'rgba(42, 69, 76, 0.45)',
+  inactiveButtonColor: '#254047',
+  selectorBackground: 'rgba(5, 89, 133, 0.06)',
+}
+
+const LIGHT_UI: Record<GameTheme, ThemeUi> = {
+  dev: DEV_UI_LIGHT,
+  trading: TRADING_UI_LIGHT,
+}
+
+type ControlTextRole = 'warning' | 'secondary' | 'accent' | 'danger'
+
+const CONTROL_TEXT_ON_DARK: Record<ControlTextRole, string> = {
+  warning: '#fff0c2',
+  secondary: '#d7eeff',
+  accent: '#d7ffd0',
+  danger: '#ffd8dc',
+}
+
+export function getControlButtonTextColor(
+  ui: ThemeUi,
+  colorScheme: ColorScheme,
+  role: ControlTextRole,
+): string {
+  if (colorScheme === 'light') {
+    return ui[role]
+  }
+
+  return CONTROL_TEXT_ON_DARK[role]
+}
+
 const THEMES: Record<GameTheme, ThemeDefinition> = {
   dev: DEV_THEME,
   trading: TRADING_THEME,
 }
 
-export function getThemeDefinition(theme: GameTheme): ThemeDefinition {
-  return THEMES[theme]
+export function getThemeDefinition(theme: GameTheme, colorScheme: ColorScheme = 'dark'): ThemeDefinition {
+  const base = THEMES[theme]
+  const copy = getCurrentMessages().theme[theme]
+  const themed = {
+    ...base,
+    copy,
+  }
+
+  if (colorScheme === 'dark') return themed
+
+  return {
+    ...themed,
+    ui: LIGHT_UI[theme],
+    colors: LIGHT_COLORS[theme],
+    syntaxColors: LIGHT_SYNTAX[theme],
+  }
 }
 
 export function getLevelDisplayName(theme: GameTheme, level: number): string {
+  const messages = getCurrentMessages()
   const themeLevel = THEMES[theme].levelNames[(level - 1) % THEMES[theme].levelNames.length]
-  return themeLevel ?? LEVELS[(level - 1) % LEVELS.length]?.filename ?? `${THEMES[theme].copy.levelWord} ${level}`
+  return themeLevel ?? LEVELS[(level - 1) % LEVELS.length]?.filename ?? `${messages.theme[theme].levelWord} ${level}`
 }

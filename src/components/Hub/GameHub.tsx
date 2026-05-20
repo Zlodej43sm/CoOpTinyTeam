@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useGameStore } from '@/store/gameStore'
-import { getThemeDefinition } from '@/game/config/theme'
+import type { ThemeUi } from '@/game/config/theme'
 import { trackHubGameLaunched, trackNavigationClick, trackThemeSelected } from '@/analytics/events'
 import { GAMES_REGISTRY, type GameEntry } from '@/games/registry'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useTranslation } from '@/hooks/useTranslation'
 import { pushWishlistPath } from '@/services/navigation'
 import { rem } from '@/ui/typography'
 
@@ -10,7 +12,8 @@ export default function GameHub() {
   const theme = useGameStore((s) => s.theme)
   const setTheme = useGameStore((s) => s.setTheme)
   const setPhase = useGameStore((s) => s.setPhase)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const { messages, t } = useTranslation()
   const { ui } = themeDef
 
   return (
@@ -55,7 +58,7 @@ export default function GameHub() {
             letterSpacing: '0.28em',
           }}
         >
-          ARCADE · SELECT YOUR GAME
+          {messages.hub.arcadeLabel}
         </p>
 
         <h1
@@ -68,7 +71,7 @@ export default function GameHub() {
             maxWidth: 920,
           }}
         >
-          Haunted IDE browser games for parent developers, toddlers, and tiny coders
+          {messages.hub.title}
         </h1>
 
         <p
@@ -81,9 +84,7 @@ export default function GameHub() {
             maxWidth: 940,
           }}
         >
-          A parent-developer and their tiny coder are trapped inside a haunted IDE. Bugs
-          {' '}<span style={{ color: ui.warning }}>(literal cartoon bugs)</span>{' '}
-          have infected the codebase. The only way to defeat them: type the code correctly as it streams by.
+          {messages.hub.story}
         </p>
 
         <p
@@ -96,12 +97,11 @@ export default function GameHub() {
             maxWidth: 940,
           }}
         >
-          CoOp Tiny Team is a family-friendly browser arcade platform built for quick play sessions,
-          co-op typing, tap-to-play kids modes, and screen time that parents and little kids can enjoy together.
+          {messages.hub.platform}
         </p>
 
         <section
-          aria-label="Why families play"
+          aria-label={messages.hub.whyFamiliesAria}
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
@@ -111,11 +111,7 @@ export default function GameHub() {
             marginTop: '0.35rem',
           }}
         >
-          {[
-            'Parent + child co-op typing in a haunted codebase',
-            'Kids arcade mode for toddlers and tiny coders who just want to tap and play',
-            'Instant browser gameplay on desktop and tablet with no install needed',
-          ].map((item) => (
+          {messages.hub.whyFamilies.map((item) => (
             <div
               key={item}
               style={{
@@ -169,7 +165,7 @@ export default function GameHub() {
                   borderRadius: 999,
                 }}
               >
-                {t === 'dev' ? 'DEV DESK' : 'TRADING FLOOR'}
+                {messages.theme[t].themeChip}
               </button>
             )
           })}
@@ -208,7 +204,7 @@ export default function GameHub() {
               lineHeight: 1.7,
             }}
           >
-            GIFTS · SHARED PICKS
+            {messages.hub.giftsLabel}
           </p>
           <h2
             id="wishlist-heading"
@@ -220,7 +216,7 @@ export default function GameHub() {
               lineHeight: 1.7,
             }}
           >
-            Create a shared gift wishlist for birthdays, holidays, and tiny-team surprises
+            {messages.hub.giftsTitle}
           </h2>
           <p
             style={{
@@ -231,8 +227,7 @@ export default function GameHub() {
               lineHeight: 1.95,
             }}
           >
-            Add gift ideas with links and notes, share the wishlist URL with family or friends,
-            and let each person select one item so the rest of the group can see it is already taken.
+            {messages.hub.giftsLead}
           </p>
         </div>
 
@@ -267,7 +262,7 @@ export default function GameHub() {
               boxShadow: `0 12px 24px ${hexToRgba(ui.accent, 0.14)}`,
             }}
           >
-            OPEN WISHLIST
+            {messages.hub.openWishlist}
           </button>
           <div
             style={{
@@ -279,7 +274,7 @@ export default function GameHub() {
               textAlign: 'center',
             }}
           >
-            Gift list · item links · descriptions · one picker per gift
+            {messages.hub.giftsDescription}
           </div>
         </div>
       </section>
@@ -307,7 +302,7 @@ export default function GameHub() {
             marginBottom: '0.2rem',
           }}
         >
-          FAMILY ARCADE GAMES
+          {messages.hub.featuredGames}
         </h2>
         {GAMES_REGISTRY.map((entry) => (
           <GameTile
@@ -343,11 +338,11 @@ export default function GameHub() {
           maxWidth: '960px',
         }}
       >
-        <div>© {new Date().getFullYear()} COOPTINYTEAM · ALL RIGHTS RESERVED</div>
-        <div style={{ color: ui.accent, opacity: 0.7 }}>
-          BROWSER GAMES FOR PARENT DEVELOPERS, TODDLERS, AND TINY CODERS
+        <div>{t(messages.hub.footerRights, { year: new Date().getFullYear() })}</div>
+        <div style={{ color: ui.text }}>
+          {messages.hub.footerTagline}
         </div>
-        <div style={{ color: ui.accent, opacity: 0.5 }}>MORE GAMES COMING SOON</div>
+        <div style={{ color: ui.muted }}>{messages.hub.footerMore}</div>
       </footer>
     </main>
   )
@@ -359,11 +354,17 @@ function GameTile({
   onLaunch,
 }: {
   entry: GameEntry
-  ui: ReturnType<typeof getThemeDefinition>['ui']
+  ui: ThemeUi
   onLaunch: () => void
 }) {
   const [hovered, setHovered] = useState(false)
+  const { messages } = useTranslation()
+  const gameCopy = messages.games[entry.id]
   const playable = !entry.comingSoon
+  const title = gameCopy?.title ?? entry.title
+  const subtitle = gameCopy?.subtitle ?? entry.subtitle
+  const description = gameCopy?.description ?? entry.description
+  const badge = gameCopy?.badge ?? entry.badge
 
   return (
     <article
@@ -410,10 +411,10 @@ function GameTile({
             borderRadius: 999,
           }}
         >
-          SOON
+          {messages.common.soon}
         </span>
       )}
-      {entry.badge && !entry.comingSoon && (
+      {badge && !entry.comingSoon && (
         <span
           style={{
             position: 'absolute',
@@ -428,7 +429,7 @@ function GameTile({
             borderRadius: 999,
           }}
         >
-          {entry.badge}
+          {badge}
         </span>
       )}
 
@@ -443,19 +444,18 @@ function GameTile({
           lineHeight: 1.5,
         }}
       >
-        {entry.title}
+        {title}
       </div>
 
       <div
         style={{
           fontFamily: '"Press Start 2P", monospace',
           fontSize: rem(0.44),
-          color: ui.secondary,
+          color: ui.muted,
           letterSpacing: '0.1em',
-          opacity: 0.8,
         }}
       >
-        {entry.subtitle}
+        {subtitle}
       </div>
 
       <div
@@ -467,7 +467,7 @@ function GameTile({
           flexGrow: 1,
         }}
       >
-        {entry.description}
+        {description}
       </div>
 
       {playable && (
@@ -486,7 +486,7 @@ function GameTile({
             borderRadius: 14,
           }}
         >
-          ▶ PLAY
+          {messages.common.play}
         </div>
       )}
     </article>

@@ -1,12 +1,14 @@
-import { getThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
 import { trackNavigationClick } from '@/analytics/events'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useTranslation } from '@/hooks/useTranslation'
+import type { ThemeUi } from '@/game/config/theme'
 import { rem } from '@/ui/typography'
 
 export default function RulesPage() {
-  const theme = useGameStore((s) => s.theme)
   const setPhase = useGameStore((s) => s.setPhase)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const { messages } = useTranslation()
   const { ui, copy } = themeDef
   const sections = [copy.scoreRules, copy.dangerRules, copy.coopRules]
 
@@ -32,7 +34,7 @@ export default function RulesPage() {
             }}
             style={backButtonStyle(ui)}
           >
-            BACK
+            {messages.common.back}
           </button>
           <button
             onClick={() => {
@@ -56,7 +58,7 @@ const wrapperStyle: React.CSSProperties = {
   padding: '2rem 1rem',
 }
 
-function panelStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function panelStyle(ui: ThemeUi): React.CSSProperties {
   return {
     width: 'min(760px, 96vw)',
     display: 'flex',
@@ -71,7 +73,7 @@ function panelStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSP
   }
 }
 
-function subtitleStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function subtitleStyle(ui: ThemeUi): React.CSSProperties {
   return {
     fontSize: rem(0.42),
     color: ui.muted,
@@ -79,7 +81,7 @@ function subtitleStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.C
   }
 }
 
-function sectionStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function sectionStyle(ui: ThemeUi): React.CSSProperties {
   return {
     display: 'flex',
     flexDirection: 'column',
@@ -92,14 +94,14 @@ function sectionStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CS
   }
 }
 
-function headingStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function headingStyle(ui: ThemeUi): React.CSSProperties {
   return {
     fontSize: rem(0.46),
     color: ui.danger,
   }
 }
 
-function bodyStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function bodyStyle(ui: ThemeUi): React.CSSProperties {
   return {
     fontSize: rem(0.4),
     color: ui.text,
@@ -115,7 +117,7 @@ const buttonRowStyle: React.CSSProperties = {
   flexWrap: 'wrap',
 }
 
-function backButtonStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function backButtonStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.controlBg, 0.94)} 0%, ${alpha('#000000', 0.18)} 100%)`,
     border: `2px solid ${ui.inactiveButtonBorder}`,
@@ -128,7 +130,7 @@ function backButtonStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React
   }
 }
 
-function playButtonStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function playButtonStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.accent, 0.16)} 0%, ${alpha(ui.controlBg, 0.94)} 100%)`,
     border: `2px solid ${ui.accent}`,

@@ -1,4 +1,9 @@
 import type { Wishlist, WishlistItem } from '@/types'
+import {
+  finalizeParticipantName,
+  finalizeWishlistName,
+  sanitizeWishlistItemInput,
+} from '@/services/wishlistFields'
 
 type D1Result<T = unknown> = {
   results?: T[]
@@ -41,6 +46,7 @@ type Env = {
 type WishlistRow = {
   id: string
   name: string | null
+  logo: string | null
   created_at: string | null
   updated_at: string | null
 }
@@ -65,6 +71,7 @@ type WishlistEditInput = {
 
 type WishlistNameInput = WishlistEditInput & {
   name?: string
+  logo?: string | null
 }
 
 type WishlistItemInput = WishlistEditInput & Partial<WishlistItem>
@@ -208,7 +215,7 @@ async function handleWishlistApi(request: Request, env: Env): Promise<Response> 
       if (!await canEditWishlist(env.WISHLIST_DB, wishlistId, input.editToken)) {
         return json({ error: 'Edit link required' }, 403)
       }
-      const wishlist = await renameWishlist(env.WISHLIST_DB, wishlistId, input.name)
+      const wishlist = await patchWishlist(env.WISHLIST_DB, wishlistId, input)
       return wishlist ? json({ wishlist }) : json({ error: 'Wishlist not found' }, 404)
     }
 
@@ -293,17 +300,37 @@ async function createWishlist(db: D1DatabaseBinding, input: WishlistWriteInput):
   return loadWishlist(db, id, true) as Promise<Wishlist>
 }
 
-async function renameWishlist(
+async function patchWishlist(
   db: D1DatabaseBinding,
   wishlistId: string,
-  name: string | undefined,
+  input: WishlistNameInput,
 ): Promise<Wishlist | null> {
   const now = new Date().toISOString()
+  const fields: string[] = []
+  const values: unknown[] = []
+
+  if (input.name !== undefined) {
+    fields.push('name = ?')
+    values.push(normalizeWishlistName(input.name))
+  }
+
+  if (input.logo !== undefined) {
+    fields.push('logo = ?')
+    values.push(normalizeWishlistLogo(input.logo))
+  }
+
+  if (fields.length === 0) {
+    return loadWishlist(db, wishlistId, true)
+  }
+
+  fields.push('updated_at = ?', 'last_used_at = ?')
+  values.push(now, now, wishlistId)
+
   const result = await db.prepare(`
     update wishlists
-    set name = ?, updated_at = ?, last_used_at = ?
+    set ${fields.join(', ')}
     where id = ?
-  `).bind(normalizeWishlistName(name), now, now, wishlistId).run()
+  `).bind(...values).run()
 
   if ((result.meta?.changes ?? 0) === 0) return null
   return loadWishlist(db, wishlistId, true)
@@ -339,9 +366,13 @@ async function updateWishlistItem(
   input: WishlistItemInput,
 ): Promise<Wishlist | null> {
   const now = new Date().toISOString()
-  const title = input.title?.trim()
+  const sanitized = sanitizeWishlistItemInput({
+    title: input.title ?? '',
+    link: input.link ?? '',
+    description: input.description ?? '',
+  })
 
-  if (!title) {
+  if (!sanitized.title) {
     throw new Error('Item name is required')
   }
 
@@ -350,9 +381,9 @@ async function updateWishlistItem(
     set title = ?, link = ?, description = ?, updated_at = ?, last_used_at = ?
     where wishlist_id = ? and id = ?
   `).bind(
-    title,
-    input.link?.trim() ?? '',
-    input.description?.trim() ?? '',
+    sanitized.title,
+    sanitized.link,
+    sanitized.description,
     now,
     now,
     wishlistId,
@@ -388,7 +419,12 @@ async function claimWishlistItem(
   selectedByInput: string | undefined,
 ): Promise<{ wishlist: Wishlist | null; claimed: boolean }> {
   const now = new Date().toISOString()
-  const selectedBy = normalizeParticipantName(selectedByInput)
+  const selectedBy = finalizeParticipantName(selectedByInput ?? '')
+
+  if (!selectedBy) {
+    throw new Error('Name is required')
+  }
+
   const result = await db.prepare(`
     update wishlist_items
     set selected_by = ?, updated_at = ?, last_used_at = ?
@@ -410,7 +446,12 @@ async function releaseWishlistItem(
   selectedByInput: string | undefined,
 ): Promise<Wishlist | null> {
   const now = new Date().toISOString()
-  const selectedBy = normalizeParticipantName(selectedByInput)
+  const selectedBy = finalizeParticipantName(selectedByInput ?? '')
+
+  if (!selectedBy) {
+    return loadWishlist(db, wishlistId, true)
+  }
+
   const result = await db.prepare(`
     update wishlist_items
     set selected_by = null, updated_at = ?, last_used_at = ?
@@ -431,9 +472,13 @@ async function insertWishlistItem(
   input: Partial<WishlistItem>,
 ): Promise<void> {
   const now = new Date().toISOString()
-  const title = input.title?.trim()
+  const sanitized = sanitizeWishlistItemInput({
+    title: input.title ?? '',
+    link: input.link ?? '',
+    description: input.description ?? '',
+  })
 
-  if (!title) {
+  if (!sanitized.title) {
     throw new Error('Item name is required')
   }
 
@@ -457,12 +502,12 @@ async function insertWishlistItem(
       selected_by = excluded.selected_by,
       updated_at = excluded.updated_at,
       last_used_at = excluded.last_used_at
-  `).bind(
+  `  ).bind(
     input.id?.trim() || createId('gift'),
     wishlistId,
-    title,
-    input.link?.trim() ?? '',
-    input.description?.trim() ?? '',
+    sanitized.title,
+    sanitized.link,
+    sanitized.description,
     input.selectedBy ?? null,
     input.createdAt ?? now,
     now,
@@ -480,7 +525,7 @@ async function loadWishlist(
   }
 
   const wishlistRow = await db.prepare(`
-    select id, name, created_at, updated_at
+    select id, name, logo, created_at, updated_at
     from wishlists
     where id = ?
   `).bind(wishlistId).first<WishlistRow>()
@@ -551,6 +596,7 @@ function mapWishlist(row: WishlistRow, itemRows: WishlistItemRow[]): Wishlist {
   return {
     id: row.id,
     name: row.name ?? DEFAULT_WISHLIST_NAME,
+    logo: row.logo ?? null,
     createdAt: row.created_at ?? now,
     updatedAt: row.updated_at ?? now,
     items: itemRows.map((item) => ({
@@ -587,11 +633,33 @@ function createId(prefix: string): string {
 }
 
 function normalizeWishlistName(name: string | undefined): string {
-  const trimmed = name?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : DEFAULT_WISHLIST_NAME
+  return finalizeWishlistName(name ?? '', DEFAULT_WISHLIST_NAME)
 }
 
-function normalizeParticipantName(name: string | undefined): string {
-  const trimmed = name?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : 'Guest'
+function normalizeWishlistLogo(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const match = trimmed.match(/^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=\s]+)$/i)
+  if (!match) {
+    throw new Error('Logo must be a PNG, JPG, WebP, or GIF image.')
+  }
+
+  const mime = match[1]?.toLowerCase()
+  const base64 = match[2]?.replace(/\s/g, '') ?? ''
+  if (!mime) {
+    throw new Error('Logo must be a PNG, JPG, WebP, or GIF image.')
+  }
+
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
+  const byteLength = Math.floor((base64.length * 3) / 4) - padding
+  const maxBytes = 300 * 1024
+
+  if (byteLength > maxBytes) {
+    throw new Error('Logo must be 300 KB or smaller.')
+  }
+
+  return `data:${mime};base64,${base64}`
 }

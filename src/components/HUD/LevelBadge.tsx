@@ -1,6 +1,7 @@
-import { getLevelDisplayName, getThemeDefinition } from '@/game/config/theme'
+import { getLevelDisplayName } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
 import { LEVELS } from '@/game/config/levels'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
 import { rem } from '@/ui/typography'
 
 const style: React.CSSProperties = {
@@ -15,7 +16,7 @@ export default function LevelBadge() {
   const theme = useGameStore((s) => s.theme)
   const config = LEVELS[(level - 1) % LEVELS.length]
   const isKidsArcade = phase === 'kids-arcade'
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
 
   return (
     <div

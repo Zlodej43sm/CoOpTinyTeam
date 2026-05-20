@@ -1,7 +1,10 @@
 import { LEVELS } from '@/game/config/levels'
-import { getLevelDisplayName, getThemeDefinition } from '@/game/config/theme'
+import { getLevelDisplayName } from '@/game/config/theme'
+import type { ThemeUi } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
 import { trackGameStarted, trackLevelSelected, trackNavigationClick } from '@/analytics/events'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useTranslation } from '@/hooks/useTranslation'
 import { rem } from '@/ui/typography'
 
 export default function LevelSelect() {
@@ -10,7 +13,8 @@ export default function LevelSelect() {
   const setPhase = useGameStore((s) => s.setPhase)
   const reset = useGameStore((s) => s.reset)
   const bumpRunId = useGameStore((s) => s.bumpRunId)
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const { messages } = useTranslation()
   const { ui, copy } = themeDef
 
   function handleSelect(id: number) {
@@ -78,7 +82,7 @@ export default function LevelSelect() {
         }}
         style={backBtnStyle(ui)}
       >
-        BACK
+        {messages.common.back}
       </button>
     </div>
   )
@@ -102,7 +106,7 @@ function alpha(color: string, opacity: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${opacity})`
 }
 
-function backBtnStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function backBtnStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${alpha(ui.controlBg, 0.92)} 0%, ${alpha('#000000', 0.18)} 100%)`,
     border: `2px solid ${ui.inactiveButtonBorder}`,

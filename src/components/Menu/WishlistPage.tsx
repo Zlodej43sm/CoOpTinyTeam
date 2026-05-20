@@ -1,5 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
 import type { CSSProperties } from 'react'
+import QRCode from 'react-qr-code'
 import type { ThemeDefinition } from '@/game/config/theme'
 import { getWishlistEditToken, getWishlistIdFromPath, pushHomePath, replaceWishlistPath } from '@/services/navigation'
 import {
@@ -17,16 +18,43 @@ import {
   renameWishlist,
   saveParticipantName,
   updateWishlistItem,
+  updateWishlistLogo,
 } from '@/services/wishlist'
+import { readWishlistLogoFile } from '@/services/wishlistLogo'
+import {
+  finalizeParticipantName,
+  hasDisplayableItemLink,
+  normalizeExternalUrl,
+  sanitizeItemDescriptionInput,
+  sanitizeItemLinkInput,
+  sanitizeItemTitleInput,
+  sanitizeParticipantNameInput,
+  sanitizeWishlistNameInput,
+  WISHLIST_FIELD_LIMITS,
+} from '@/services/wishlistFields'
+import {
+  getJoinedViewerName,
+  saveJoinedViewerName,
+} from '@/services/wishlistViewer'
+import { useResolvedColorScheme } from '@/hooks/useResolvedColorScheme'
+import { useTranslation } from '@/hooks/useTranslation'
 import { useGameStore } from '@/store/gameStore'
 import type { Wishlist, WishlistAccess, WishlistItem } from '@/types'
+import type { Messages } from '@/i18n/types'
+import { formatMessage } from '@/i18n'
 import { trackNavigationClick } from '@/analytics/events'
 
 type WishlistMode = 'cloud' | 'local'
 type WishlistUi = ThemeDefinition['ui']
 type BusyAction =
   | 'load'
+  | 'new-list'
+  | 'open-list'
+  | 'delete-list'
+  | 'copy-share'
+  | 'copy-edit'
   | 'save-name'
+  | 'save-logo'
   | 'add-item'
   | 'refresh'
   | `claim-${string}`
@@ -35,18 +63,20 @@ type BusyAction =
   | `edit-${string}`
   | null
 
+const APP_LOGO_URL = '/assets/logo.mini.webp'
+
 const EMPTY_ACCESS: WishlistAccess = {
   canEdit: false,
   editToken: null,
 }
 
 const EMPTY_ITEM_DRAFT = {
-  title: 'Item 1',
+  title: '',
   link: '',
   description: '',
 }
 
-const WISHLIST_UI: WishlistUi = {
+const WISHLIST_UI_DARK: WishlistUi = {
   appBackground:
     'radial-gradient(circle at 18% 12%, rgba(109, 220, 255, 0.16) 0%, rgba(109, 220, 255, 0) 26%), radial-gradient(circle at 82% 10%, rgba(255, 216, 112, 0.1) 0%, rgba(255, 216, 112, 0) 24%), radial-gradient(circle at top, rgba(28, 63, 70, 0.92) 0%, rgba(10, 15, 24, 0.98) 48%, rgba(4, 6, 10, 1) 100%)',
   panelBorder: 'rgba(109, 220, 255, 0.24)',
@@ -75,12 +105,219 @@ const WISHLIST_UI: WishlistUi = {
   selectorBackground: 'rgba(255, 255, 255, 0.045)',
 }
 
+const WISHLIST_UI_LIGHT: WishlistUi = {
+  appBackground:
+    'radial-gradient(circle at 18% 12%, rgba(109, 220, 255, 0.24) 0%, rgba(109, 220, 255, 0) 28%), radial-gradient(circle at 82% 10%, rgba(255, 216, 112, 0.2) 0%, rgba(255, 216, 112, 0) 26%), radial-gradient(circle at top, rgba(244, 250, 252, 1) 0%, rgba(228, 241, 245, 0.98) 48%, rgba(210, 228, 234, 1) 100%)',
+  panelBorder: 'rgba(16, 78, 92, 0.28)',
+  panelBackground: 'linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 250, 252, 0.98) 100%)',
+  panelShadow: '0 24px 64px rgba(24, 52, 68, 0.12), 0 0 24px rgba(109, 220, 255, 0.1)',
+  text: '#0a2228',
+  muted: '#2a454c',
+  accent: '#146b44',
+  secondary: '#0a6280',
+  warning: '#9a6800',
+  danger: '#a82f44',
+  logoGlow: 'none',
+  hudGradient: 'transparent',
+  controlBg: 'rgba(255, 255, 255, 0.94)',
+  score: '#146b44',
+  scoreShadow: 'none',
+  badge: '#0a6280',
+  badgeShadow: 'none',
+  livesColor: '#a82f44',
+  livesBackground: 'rgba(255, 220, 225, 0.72)',
+  livesBorder: 'rgba(168, 47, 68, 0.36)',
+  livesShadow: 'none',
+  subtleBorder: 'rgba(10, 34, 40, 0.22)',
+  inactiveButtonBorder: 'rgba(42, 69, 76, 0.45)',
+  inactiveButtonColor: '#254047',
+  selectorBackground: 'rgba(10, 34, 40, 0.06)',
+}
+
+const WISHLIST_UI_BY_SCHEME = {
+  dark: WISHLIST_UI_DARK,
+  light: WISHLIST_UI_LIGHT,
+} as const
+
 const relaxedFontStack = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const arcadeFontStack = '"Press Start 2P", monospace'
 
+function LoadingSpinner({ ui }: { ui: WishlistUi }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 14,
+        height: 14,
+        borderRadius: '50%',
+        border: `2px solid ${alpha(ui.secondary, 0.24)}`,
+        borderTopColor: ui.secondary,
+        animation: 'wishlist-button-spin 0.75s linear infinite',
+        flexShrink: 0,
+      }}
+    />
+  )
+}
+
+function ActionButton({
+  ui,
+  busy = false,
+  busyLabel,
+  children,
+  style,
+  ...props
+}: ComponentProps<'button'> & { ui: WishlistUi; busy?: boolean; busyLabel?: string }) {
+  const disabled = busy || props.disabled
+
+  return (
+    <button
+      {...props}
+      disabled={disabled}
+      aria-busy={busy || undefined}
+      style={{
+        ...style,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.45rem',
+        cursor: disabled ? 'not-allowed' : style?.cursor ?? 'pointer',
+        opacity: disabled && !props.disabled ? 0.72 : style?.opacity,
+      }}
+    >
+      {busy ? (
+        <>
+          <LoadingSpinner ui={ui} />
+          <span>{busyLabel ?? children}</span>
+        </>
+      ) : (
+        children
+      )}
+    </button>
+  )
+}
+
+function EditIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 20h9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 6h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 6V4h8v2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconActionButton({
+  ui,
+  label,
+  tone = 'neutral',
+  busy = false,
+  busyLabel,
+  style,
+  children,
+  ...props
+}: ComponentProps<'button'> & {
+  ui: WishlistUi
+  label: string
+  tone?: 'neutral' | 'danger'
+  busy?: boolean
+  busyLabel?: string
+}) {
+  const disabled = busy || props.disabled
+
+  return (
+    <button
+      {...props}
+      type="button"
+      aria-label={label}
+      title={busy && busyLabel ? busyLabel : label}
+      disabled={disabled}
+      aria-busy={busy || undefined}
+      style={{
+        ...iconActionButtonStyle(ui, tone),
+        ...style,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled && !props.disabled ? 0.72 : undefined,
+      }}
+    >
+      {busy ? <LoadingSpinner ui={ui} /> : children}
+    </button>
+  )
+}
+
+function ExpandableDescription({
+  text,
+  ui,
+  muted = false,
+}: {
+  text: string
+  ui: WishlistUi
+  muted?: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [canExpand, setCanExpand] = useState(false)
+  const textRef = useRef<HTMLParagraphElement>(null)
+  const { messages } = useTranslation()
+  const c = messages.common
+
+  useLayoutEffect(() => {
+    const element = textRef.current
+    if (!element || expanded) return
+    setCanExpand(element.scrollHeight > element.clientHeight + 1)
+  }, [expanded, text])
+
+  if (!text) return null
+
+  return (
+    <div style={descriptionBlockStyle}>
+      <p
+        ref={textRef}
+        style={{
+          ...itemDescriptionStyle(ui, muted),
+          ...(expanded ? {} : descriptionClampStyle),
+        }}
+      >
+        {text}
+      </p>
+      {(canExpand || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          style={descriptionToggleStyle(ui)}
+        >
+          {expanded ? c.showLess : c.showMore}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function WishlistPage() {
   const setPhase = useGameStore((s) => s.setPhase)
-  const ui = WISHLIST_UI
+  const { messages, t } = useTranslation()
+  const wl = messages.wishlist
+  const notices = wl.notices
+  const resolvedColorScheme = useResolvedColorScheme()
+  const ui = WISHLIST_UI_BY_SCHEME[resolvedColorScheme]
   const [wishlist, setWishlist] = useState<Wishlist | null>(null)
   const [ownedWishlists, setOwnedWishlists] = useState<OwnedWishlist[]>([])
   const [mode, setMode] = useState<WishlistMode>('local')
@@ -92,6 +329,10 @@ export default function WishlistPage() {
   const [itemDraft, setItemDraft] = useState(EMPTY_ITEM_DRAFT)
   const [sharedViewerMode, setSharedViewerMode] = useState(false)
   const [viewerNameAccepted, setViewerNameAccepted] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const [pendingListId, setPendingListId] = useState<string | null>(null)
+  const participantNameLocked = sharedViewerMode && viewerNameAccepted
+  const participantNameValid = finalizeParticipantName(participantName).length > 0
 
   useEffect(() => {
     let cancelled = false
@@ -106,12 +347,22 @@ export default function WishlistPage() {
       if (cancelled) return
 
       setSharedViewerMode(isSharedViewer)
-      setViewerNameAccepted(!isSharedViewer)
+      if (isSharedViewer) {
+        const joinedName = requestedId ? getJoinedViewerName(requestedId) : null
+        if (joinedName) {
+          setParticipantName(joinedName)
+          setViewerNameAccepted(true)
+        } else {
+          setViewerNameAccepted(false)
+        }
+      } else {
+        setViewerNameAccepted(true)
+      }
       setWishlist(result.wishlist)
       setWishlistName(result.wishlist.name)
       setMode(result.mode)
       setAccess(result.access)
-      setItemDraft(createEmptyItemDraft(result.wishlist))
+      setItemDraft(createEmptyItemDraft(result.wishlist, wl))
       replaceWishlistPath(result.wishlist.id, isSharedViewer ? null : result.access.editToken)
       if (isSharedViewer) {
         setOwnedWishlists([])
@@ -147,17 +398,24 @@ export default function WishlistPage() {
     if (!wishlist) return
 
     if (!access.canEdit) {
-      setNotice('Open the edit link to rename this wishlist.')
+      setNotice(notices.renameDenied)
+      return
+    }
+
+    const nextParticipantName = finalizeParticipantName(participantName)
+    if (nextParticipantName.length === 0) {
+      setNotice(notices.nameRequired)
       return
     }
 
     setBusyAction('save-name')
+    setParticipantName(nextParticipantName)
     const result = await renameWishlist(wishlist, wishlistName, access)
     setWishlist(result.wishlist)
     setWishlistName(result.wishlist.name)
     setMode(result.mode)
     setAccess(result.access)
-    setNotice('Wishlist name saved.')
+    setNotice(notices.nameSaved)
     void refreshOwnedWishlists()
     setBusyAction(null)
   }
@@ -167,7 +425,7 @@ export default function WishlistPage() {
     if (!wishlist || itemDraft.title.trim().length === 0) return
 
     if (!access.canEdit) {
-      setNotice('Open the edit link to add gift items.')
+      setNotice(notices.addDenied)
       return
     }
 
@@ -176,8 +434,8 @@ export default function WishlistPage() {
     setWishlist(result.wishlist)
     setMode(result.mode)
     setAccess(result.access)
-    setItemDraft(createEmptyItemDraft(result.wishlist))
-    setNotice('Gift item added.')
+    setItemDraft(createEmptyItemDraft(result.wishlist, wl))
+    setNotice(notices.itemAdded)
     void refreshOwnedWishlists()
     setBusyAction(null)
   }
@@ -186,7 +444,7 @@ export default function WishlistPage() {
     if (!wishlist) return
 
     if (!access.canEdit) {
-      setNotice('Open the edit link to update gift items.')
+      setNotice(notices.editDenied)
       return
     }
 
@@ -195,7 +453,7 @@ export default function WishlistPage() {
     setWishlist(result.wishlist)
     setMode(result.mode)
     setAccess(result.access)
-    setNotice('Gift item updated.')
+    setNotice(notices.itemUpdated)
     void refreshOwnedWishlists()
     setBusyAction(null)
   }
@@ -204,11 +462,11 @@ export default function WishlistPage() {
     if (!wishlist) return
 
     if (!access.canEdit) {
-      setNotice('Open the edit link to remove gift items.')
+      setNotice(notices.deleteDenied)
       return
     }
 
-    const confirmed = window.confirm(`Remove "${item.title}" from this wishlist?`)
+    const confirmed = window.confirm(t(wl.confirmRemove, { title: item.title }))
     if (!confirmed) return
 
     setBusyAction(`delete-${item.id}`)
@@ -216,62 +474,68 @@ export default function WishlistPage() {
     setWishlist(result.wishlist)
     setMode(result.mode)
     setAccess(result.access)
-    setItemDraft(createEmptyItemDraft(result.wishlist))
-    setNotice('Gift item removed.')
+    setItemDraft(createEmptyItemDraft(result.wishlist, wl))
+    setNotice(notices.itemRemoved)
     void refreshOwnedWishlists()
     setBusyAction(null)
   }
 
   async function handleNewList() {
-    setBusyAction('load')
+    setBusyAction('new-list')
     const result = await createOwnedWishlist()
 
     setWishlist(result.wishlist)
     setWishlistName(result.wishlist.name)
     setMode(result.mode)
     setAccess(result.access)
-    setItemDraft(createEmptyItemDraft(result.wishlist))
+    setItemDraft(createEmptyItemDraft(result.wishlist, wl))
     setSharedViewerMode(false)
     setViewerNameAccepted(true)
     replaceWishlistPath(result.wishlist.id, result.access.editToken)
-    setNotice('New wishlist created.')
+    setNotice(notices.listCreated)
     await refreshOwnedWishlists()
     setBusyAction(null)
   }
 
   async function handleOpenOwnedList(owned: OwnedWishlist) {
-    setBusyAction('load')
-    const result = await loadWishlist(owned.wishlist.id, owned.access.editToken)
+    setBusyAction('open-list')
+    setPendingListId(owned.wishlist.id)
 
-    setWishlist(result.wishlist)
-    setWishlistName(result.wishlist.name)
-    setMode(result.mode)
-    setAccess(result.access)
-    setItemDraft(createEmptyItemDraft(result.wishlist))
-    setSharedViewerMode(false)
-    setViewerNameAccepted(true)
-    replaceWishlistPath(result.wishlist.id, result.access.editToken)
-    setNotice('Wishlist opened.')
-    await refreshOwnedWishlists()
-    setBusyAction(null)
+    try {
+      const result = await loadWishlist(owned.wishlist.id, owned.access.editToken)
+
+      setWishlist(result.wishlist)
+      setWishlistName(result.wishlist.name)
+      setMode(result.mode)
+      setAccess(result.access)
+      setItemDraft(createEmptyItemDraft(result.wishlist, wl))
+      setSharedViewerMode(false)
+      setViewerNameAccepted(true)
+      replaceWishlistPath(result.wishlist.id, result.access.editToken)
+      setNotice(notices.listOpened)
+      await refreshOwnedWishlists()
+    } finally {
+      setPendingListId(null)
+      setBusyAction(null)
+    }
   }
 
   async function handleDeleteCurrentList() {
     if (!wishlist) return
 
     if (!access.canEdit) {
-      setNotice('Open the edit link to delete this wishlist.')
+      setNotice(notices.deleteListDenied)
       return
     }
 
-    const confirmed = window.confirm(`Delete "${wishlist.name}"? This removes the wishlist and all gift items.`)
+    const confirmed = window.confirm(t(wl.confirmDelete, { name: wishlist.name }))
     if (!confirmed) return
 
-    setBusyAction('load')
+    setBusyAction('delete-list')
     const deleted = await deleteWishlist(wishlist, access)
 
     if (!deleted) {
-      setNotice('Could not delete this wishlist. Check that you are using the edit link.')
+      setNotice(notices.deleteFailed)
       setBusyAction(null)
       return
     }
@@ -285,22 +549,22 @@ export default function WishlistPage() {
       setWishlistName(result.wishlist.name)
       setMode(result.mode)
       setAccess(result.access)
-      setItemDraft(createEmptyItemDraft(result.wishlist))
+      setItemDraft(createEmptyItemDraft(result.wishlist, wl))
       setSharedViewerMode(false)
       setViewerNameAccepted(true)
       replaceWishlistPath(result.wishlist.id, result.access.editToken)
-      setNotice('Wishlist deleted.')
+      setNotice(notices.listDeleted)
     } else {
       const result = await createOwnedWishlist()
       setWishlist(result.wishlist)
       setWishlistName(result.wishlist.name)
       setMode(result.mode)
       setAccess(result.access)
-      setItemDraft(createEmptyItemDraft(result.wishlist))
+      setItemDraft(createEmptyItemDraft(result.wishlist, wl))
       setSharedViewerMode(false)
       setViewerNameAccepted(true)
       replaceWishlistPath(result.wishlist.id, result.access.editToken)
-      setNotice('Wishlist deleted. A new empty wishlist is ready.')
+      setNotice(notices.listDeletedEmpty)
       await refreshOwnedWishlists()
     }
 
@@ -311,16 +575,22 @@ export default function WishlistPage() {
     if (!wishlist) return
 
     if (participantName.trim().length === 0) {
-      setNotice('Add your name before selecting a gift.')
+      setNotice(notices.nameRequired)
+      return
+    }
+
+    const nextName = finalizeParticipantName(participantName)
+    if (nextName.length === 0) {
+      setNotice(notices.nameRequired)
       return
     }
 
     setBusyAction(`claim-${item.id}`)
-    const result = await claimWishlistItem(wishlist, item.id, participantName, access)
+    const result = await claimWishlistItem(wishlist, item.id, nextName, access)
     setWishlist(result.wishlist)
     setMode(result.mode)
     setAccess(result.access)
-    setNotice(result.claimed ? 'Gift selected for you.' : 'Someone already selected this gift.')
+    setNotice(result.claimed ? notices.giftClaimed : notices.giftTaken)
     setBusyAction(null)
   }
 
@@ -332,7 +602,7 @@ export default function WishlistPage() {
     setWishlist(result.wishlist)
     setMode(result.mode)
     setAccess(result.access)
-    setNotice('Gift released.')
+    setNotice(notices.giftReleased)
     setBusyAction(null)
   }
 
@@ -345,7 +615,7 @@ export default function WishlistPage() {
     setWishlistName(result.wishlist.name)
     setMode(result.mode)
     setAccess(result.access)
-    setNotice('Wishlist refreshed.')
+    setNotice(notices.refreshed)
     if (!sharedViewerMode) {
       void refreshOwnedWishlists()
     }
@@ -354,37 +624,99 @@ export default function WishlistPage() {
 
   function handleEnterSharedList(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!wishlist) return
 
-    if (participantName.trim().length === 0) {
-      setNotice('Add your name before opening this shared wishlist.')
+    const nextName = finalizeParticipantName(participantName)
+    if (nextName.length === 0) {
+      setNotice(notices.sharedNameRequired)
       return
     }
 
-    saveParticipantName(participantName)
+    setParticipantName(nextName)
+    saveParticipantName(nextName)
+    saveJoinedViewerName(wishlist.id, nextName)
     setViewerNameAccepted(true)
     setNotice('')
   }
 
   async function handleCopyLink() {
-    if (!shareUrl) return
+    if (!shareUrl || busyAction !== null) return
 
+    setBusyAction('copy-share')
     try {
       await navigator.clipboard.writeText(shareUrl)
-      setNotice('Share link copied.')
+      setNotice(notices.shareCopied)
     } catch {
-      setNotice('Copy failed. Select the link manually.')
+      setNotice(notices.copyFailed)
+    } finally {
+      setBusyAction(null)
     }
   }
 
   async function handleCopyEditLink() {
-    if (!editUrl) return
+    if (!editUrl || busyAction !== null) return
 
+    setBusyAction('copy-edit')
     try {
       await navigator.clipboard.writeText(editUrl)
-      setNotice('Edit link copied. Anyone with it can change the wishlist.')
+      setNotice(notices.editCopied)
     } catch {
-      setNotice('Copy failed. Select the edit link manually.')
+      setNotice(notices.copyEditFailed)
+    } finally {
+      setBusyAction(null)
     }
+  }
+
+  async function handleLogoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!wishlist || !file) return
+
+    if (!access.canEdit) {
+      setNotice(notices.editDenied)
+      return
+    }
+
+    try {
+      setBusyAction('save-logo')
+      const dataUrl = await readWishlistLogoFile(file)
+      const result = await updateWishlistLogo(wishlist, dataUrl, access)
+      setWishlist(result.wishlist)
+      setMode(result.mode)
+      setAccess(result.access)
+      setNotice(notices.logoSaved)
+      void refreshOwnedWishlists()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      if (message === 'too-large') {
+        setNotice(notices.logoTooLarge)
+      } else if (message === 'invalid-type' || message === 'invalid-data') {
+        setNotice(notices.logoInvalidType)
+      } else {
+        setNotice(notices.logoUploadFailed)
+      }
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!wishlist || !access.canEdit) return
+
+    setBusyAction('save-logo')
+    const result = await updateWishlistLogo(wishlist, null, access)
+    setWishlist(result.wishlist)
+    setMode(result.mode)
+    setAccess(result.access)
+    setNotice(notices.logoRemoved)
+    void refreshOwnedWishlists()
+    setBusyAction(null)
+  }
+
+  function handleGoHome() {
+    trackNavigationClick({ cta: 'logo', source: 'wishlist', targetPhase: 'hub' })
+    pushHomePath()
+    setPhase('hub')
   }
 
   function handleBackToMenu() {
@@ -404,9 +736,9 @@ export default function WishlistPage() {
     if (!wishlist) return null
 
     return (
-      <section style={itemsGridStyle} aria-label="Wishlist items">
+      <section style={itemsGridStyle} aria-label={wl.itemsAriaLabel}>
         {wishlist.items.length === 0 ? (
-          <div style={emptyStateStyle(ui)}>No gift ideas yet</div>
+          <div style={emptyStateStyle(ui)}>{wl.noItems}</div>
         ) : (
           wishlist.items.map((item) => (
             <WishlistItemCard
@@ -428,81 +760,125 @@ export default function WishlistPage() {
   }
 
   return (
-    <main style={pageStyle}>
+    <main style={pageStyle(ui)}>
       <section style={panelStyle(ui)}>
         <header style={headerStyle}>
-          <div style={eyebrowStyle(ui)}>Shared gift list</div>
-          <h1 style={titleStyle(ui)}>Wishlist</h1>
+          <div style={headerTopRowStyle}>
+            <button
+              type="button"
+              onClick={handleGoHome}
+              style={logoHomeButtonStyle()}
+              aria-label={wl.backToMain}
+            >
+              <img
+                src={APP_LOGO_URL}
+                alt=""
+                style={logoPreviewStyle(ui)}
+              />
+            </button>
+            <div style={headerCopyStyle}>
+              <div style={eyebrowStyle(ui)}>{wl.eyebrow}</div>
+              <h1 style={titleStyle(ui)}>{wl.title}</h1>
+            </div>
+          </div>
           <div style={statusRowStyle}>
             <span style={pillStyle(mode === 'cloud' ? ui.accent : ui.warning)}>
-              {mode === 'cloud' ? 'Cloud saved' : 'Local only'}
+              {mode === 'cloud' ? wl.cloudSaved : wl.localOnly}
             </span>
             {sharedViewerMode && (
               <span style={pillStyle(ui.warning)}>
-                Share view
+                {wl.shareView}
               </span>
             )}
             {access.canEdit && !sharedViewerMode && (
               <span style={pillStyle(ui.secondary)}>
-                Can edit
+                {wl.canEdit}
               </span>
             )}
-            <button
+            <ActionButton
+              ui={ui}
               type="button"
               onClick={handleRefresh}
-              disabled={!wishlist || busyAction !== null}
+              disabled={!wishlist || (busyAction !== null && busyAction !== 'refresh')}
+              busy={busyAction === 'refresh'}
+              busyLabel={messages.common.refreshing}
               style={smallButtonStyle(ui)}
             >
-              Refresh
-            </button>
+              {messages.common.refresh}
+            </ActionButton>
           </div>
         </header>
 
-        {busyAction === 'load' || !wishlist ? (
-          <div style={emptyStateStyle(ui)}>Loading wishlist...</div>
+        {!wishlist ? (
+          <div style={emptyStateStyle(ui)}>{wl.loading}</div>
         ) : sharedViewerMode && !viewerNameAccepted ? (
           <form onSubmit={handleEnterSharedList} style={sharedGateStyle(ui)}>
-            <div style={formHeadingStyle(ui)}>Open shared wishlist</div>
-            <h2 style={sharedListTitleStyle(ui)}>{wishlist.name}</h2>
+            <div style={formHeadingStyle(ui)}>{wl.openShared}</div>
+            <WishlistTitleBlock ui={ui} wishlist={wishlist} />
+            <ShareLinkPanel
+              ui={ui}
+              shareUrl={shareUrl}
+              wishlistName={wishlist.name}
+              onCopy={handleCopyLink}
+              onDownload={() => setNotice(notices.qrDownloaded)}
+              copyLabel={wl.copyShareLink}
+              copyBusy={busyAction === 'copy-share'}
+              compact
+            />
             <label style={fieldStyle}>
-              <span style={labelStyle(ui)}>Your name</span>
+              <span style={labelStyle(ui)}>{wl.yourName}</span>
               <input
                 value={participantName}
-                onChange={(event) => setParticipantName(event.target.value)}
+                onChange={(event) => setParticipantName(sanitizeParticipantNameInput(event.target.value))}
                 style={inputStyle(ui)}
-                maxLength={48}
-                placeholder="Name"
+                maxLength={WISHLIST_FIELD_LIMITS.participantName}
+                placeholder={wl.namePlaceholder}
                 autoFocus
                 required
               />
             </label>
-            <button
+            <ActionButton
+              ui={ui}
               type="submit"
-              disabled={busyAction !== null || participantName.trim().length === 0}
+              disabled={!participantNameValid}
               style={primaryButtonStyle(ui)}
             >
-              Open list
-            </button>
+              {wl.openList}
+            </ActionButton>
             {notice && <div style={noticeStyle(ui)}>{notice}</div>}
           </form>
         ) : sharedViewerMode ? (
           <>
             <section style={sharedViewerStyle(ui)}>
-              <div>
-                <div style={formHeadingStyle(ui)}>Shared wishlist</div>
-                <h2 style={sharedListTitleStyle(ui)}>{wishlist.name}</h2>
-              </div>
-              <label style={fieldStyle}>
-                <span style={labelStyle(ui)}>Reserved as</span>
+              <WishlistTitleBlock ui={ui} wishlist={wishlist} heading={wl.sharedWishlist} />
+              <label style={{ ...fieldStyle, ...fieldShellStyle(participantNameLocked) }}>
+                <span style={labelStyle(ui)}>{wl.reservedAs}</span>
                 <input
                   value={participantName}
-                  onChange={(event) => setParticipantName(event.target.value)}
-                  style={inputStyle(ui)}
-                  maxLength={48}
-                  placeholder="Name"
+                  onChange={(event) => setParticipantName(sanitizeParticipantNameInput(event.target.value))}
+                  style={lockedInputStyle(ui, participantNameLocked)}
+                  maxLength={WISHLIST_FIELD_LIMITS.participantName}
+                  placeholder={wl.namePlaceholder}
+                  readOnly={participantNameLocked}
+                  disabled={participantNameLocked}
+                  aria-readonly={participantNameLocked}
+                  required
                 />
+                {participantNameLocked && (
+                  <span style={helperTextStyle(ui)}>{wl.nameLockedHint}</span>
+                )}
               </label>
             </section>
+
+            <ShareLinkPanel
+              ui={ui}
+              shareUrl={shareUrl}
+              wishlistName={wishlist.name}
+              onCopy={handleCopyLink}
+              onDownload={() => setNotice(notices.qrDownloaded)}
+              copyLabel={wl.copyShareLink}
+              copyBusy={busyAction === 'copy-share'}
+            />
 
             {notice && <div style={noticeStyle(ui)}>{notice}</div>}
 
@@ -513,37 +889,43 @@ export default function WishlistPage() {
             <section style={ownedListStyle(ui)} aria-labelledby="owned-wishlists-heading">
               <div style={ownedListHeaderStyle}>
                 <div>
-                  <div id="owned-wishlists-heading" style={formHeadingStyle(ui)}>Your lists</div>
+                  <div id="owned-wishlists-heading" style={formHeadingStyle(ui)}>{wl.yourLists}</div>
                   <div style={ownedListSubtitleStyle(ui)}>
-                    Created or editable wishlists saved in this browser.
+                    {wl.yourListsHint}
                   </div>
                 </div>
-                <button
+                <ActionButton
+                  ui={ui}
                   type="button"
                   onClick={handleNewList}
-                  disabled={busyAction !== null}
+                  disabled={busyAction !== null && busyAction !== 'new-list'}
+                  busy={busyAction === 'new-list'}
+                  busyLabel={messages.common.loading}
                   style={secondaryButtonStyle(ui)}
                 >
-                  New list
-                </button>
+                  {wl.newList}
+                </ActionButton>
               </div>
               {ownedWishlists.length === 0 ? (
-                <div style={ownedListSubtitleStyle(ui)}>No owner lists saved yet.</div>
+                <div style={ownedListSubtitleStyle(ui)}>{wl.noOwnerLists}</div>
               ) : (
                 <div style={ownedListGridStyle}>
                   {ownedWishlists.map((owned) => {
                     const active = owned.wishlist.id === wishlist.id
 
                     return (
-                      <button
+                      <ActionButton
+                        ui={ui}
                         key={owned.wishlist.id}
                         type="button"
                         onClick={() => handleOpenOwnedList(owned)}
-                        disabled={busyAction !== null || active}
+                        disabled={active || (busyAction !== null && busyAction !== 'open-list')}
+                        busy={busyAction === 'open-list' && pendingListId === owned.wishlist.id}
+                        busyLabel={messages.common.loading}
                         style={ownedListButtonStyle(ui, active)}
                       >
                         {owned.wishlist.name}
-                      </button>
+                      </ActionButton>
                     )
                   })}
                 </div>
@@ -551,116 +933,205 @@ export default function WishlistPage() {
             </section>
 
             <form onSubmit={handleRename} style={topGridStyle}>
-              <label style={fieldStyle}>
-                <span style={labelStyle(ui)}>Wishlist name</span>
+              <label style={{ ...fieldStyle, ...fieldShellStyle(!access.canEdit) }}>
+                <span style={labelStyle(ui)}>{wl.wishlistName}</span>
                 <input
                   value={wishlistName}
-                  onChange={(event) => setWishlistName(event.target.value)}
-                  style={inputStyle(ui)}
-                  maxLength={80}
+                  onChange={(event) => setWishlistName(sanitizeWishlistNameInput(event.target.value))}
+                  style={lockedInputStyle(ui, !access.canEdit)}
+                  maxLength={WISHLIST_FIELD_LIMITS.wishlistName}
                   disabled={!access.canEdit}
+                  readOnly={!access.canEdit}
+                  required
                 />
               </label>
               <label style={fieldStyle}>
-                <span style={labelStyle(ui)}>Your name</span>
+                <span style={labelStyle(ui)}>{wl.yourName}</span>
                 <input
                   value={participantName}
-                  onChange={(event) => setParticipantName(event.target.value)}
+                  onChange={(event) => setParticipantName(sanitizeParticipantNameInput(event.target.value))}
                   style={inputStyle(ui)}
-                  maxLength={48}
-                  placeholder="Name"
+                  maxLength={WISHLIST_FIELD_LIMITS.participantName}
+                  placeholder={wl.namePlaceholder}
+                  required
                 />
               </label>
-              <button
+              <ActionButton
+                ui={ui}
                 type="submit"
-                disabled={busyAction !== null || !access.canEdit}
-                style={primaryButtonStyle(ui)}
+                disabled={
+                  !access.canEdit
+                  || !participantNameValid
+                  || (busyAction !== null && busyAction !== 'save-name')
+                }
+                busy={busyAction === 'save-name'}
+                busyLabel={messages.common.saving}
+                style={{
+                  ...primaryButtonStyle(ui),
+                  ...(access.canEdit ? {} : disabledButtonStyle(ui)),
+                }}
               >
-                {busyAction === 'save-name' ? 'Saving...' : 'Save'}
-              </button>
+                {wl.save}
+              </ActionButton>
             </form>
 
-            <div style={shareRowStyle(ui)}>
-              <span style={shareTextStyle(ui)}>{shareUrl}</span>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                style={secondaryButtonStyle(ui)}
-              >
-                Copy share link
-              </button>
-            </div>
+            {access.canEdit && (
+              <section style={logoPanelStyle(ui)} aria-label={wl.logoLabel}>
+                <div style={formHeadingStyle(ui)}>{wl.logoLabel}</div>
+                <div style={logoPanelRowStyle}>
+                  {wishlist.logo ? (
+                    <img src={wishlist.logo} alt="" style={logoEditorPreviewStyle(ui)} />
+                  ) : (
+                    <div style={logoPlaceholderStyle(ui)} aria-hidden="true">
+                      ★
+                    </div>
+                  )}
+                  <div style={logoPanelActionsStyle}>
+                    <p style={helperTextStyle(ui)}>{wl.logoHint}</p>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={(event) => void handleLogoUpload(event)}
+                      style={{ display: 'none' }}
+                    />
+                    <div style={logoButtonRowStyle}>
+                      <ActionButton
+                        ui={ui}
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={busyAction !== null && busyAction !== 'save-logo'}
+                        busy={busyAction === 'save-logo'}
+                        busyLabel={messages.common.saving}
+                        style={secondaryButtonStyle(ui)}
+                      >
+                        {wishlist.logo ? wl.changeLogo : wl.uploadLogo}
+                      </ActionButton>
+                      {wishlist.logo && (
+                        <ActionButton
+                          ui={ui}
+                          type="button"
+                          onClick={() => void handleLogoRemove()}
+                          disabled={busyAction !== null && busyAction !== 'save-logo'}
+                          busy={busyAction === 'save-logo'}
+                          busyLabel={messages.common.deleting}
+                          style={dangerButtonStyle(ui)}
+                        >
+                          {wl.removeLogo}
+                        </ActionButton>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <ShareLinkPanel
+              ui={ui}
+              shareUrl={shareUrl}
+              wishlistName={wishlist.name}
+              onCopy={handleCopyLink}
+              onDownload={() => setNotice(notices.qrDownloaded)}
+              copyLabel={wl.copyShareLink}
+              copyBusy={busyAction === 'copy-share'}
+            />
 
             {access.canEdit && (
-              <div style={shareRowStyle(ui)}>
-                <span style={shareTextStyle(ui)}>{editUrl}</span>
-                <button
-                  type="button"
-                  onClick={handleCopyEditLink}
-                  style={secondaryButtonStyle(ui)}
-                >
-                  Copy CO-OP edit link
-                </button>
+              <div style={editLinkPanelStyle(ui)}>
+                <div style={formHeadingStyle(ui)}>{wl.ownerEditLink}</div>
+                <div style={shareRowStyle}>
+                  <span style={shareTextStyle(ui)}>{editUrl}</span>
+                  <ActionButton
+                    ui={ui}
+                    type="button"
+                    onClick={handleCopyEditLink}
+                    disabled={busyAction !== null && busyAction !== 'copy-edit'}
+                    busy={busyAction === 'copy-edit'}
+                    busyLabel={messages.common.copying}
+                    style={secondaryButtonStyle(ui)}
+                  >
+                    {wl.copyEditLink}
+                  </ActionButton>
+                </div>
               </div>
             )}
 
             {access.canEdit && (
-              <button
+              <ActionButton
+                ui={ui}
                 type="button"
                 onClick={handleDeleteCurrentList}
-                disabled={busyAction !== null}
+                disabled={busyAction !== null && busyAction !== 'delete-list'}
+                busy={busyAction === 'delete-list'}
+                busyLabel={messages.common.deleting}
                 style={dangerButtonStyle(ui)}
               >
-                Delete this list
-              </button>
+                {wl.deleteList}
+              </ActionButton>
             )}
 
             <form onSubmit={handleAddItem} style={addFormStyle(ui)}>
-              <div style={formHeadingStyle(ui)}>Add gift item</div>
+              <div style={formHeadingStyle(ui)}>{wl.addGiftItem}</div>
               <label style={fieldStyle}>
-                <span style={labelStyle(ui)}>Item name</span>
+                <span style={labelStyle(ui)}>{wl.itemName}</span>
                 <input
                   value={itemDraft.title}
-                  onChange={(event) => setItemDraft((draft) => ({ ...draft, title: event.target.value }))}
+                  onChange={(event) => setItemDraft((draft) => ({
+                    ...draft,
+                    title: sanitizeItemTitleInput(event.target.value),
+                  }))}
                   style={inputStyle(ui)}
-                  maxLength={90}
+                  maxLength={WISHLIST_FIELD_LIMITS.itemTitle}
                   required
                   disabled={!access.canEdit}
                 />
               </label>
               <label style={fieldStyle}>
-                <span style={labelStyle(ui)}>Product link</span>
+                <span style={labelStyle(ui)}>{wl.productLink}</span>
                 <input
                   value={itemDraft.link}
-                  onChange={(event) => setItemDraft((draft) => ({ ...draft, link: event.target.value }))}
+                  onChange={(event) => setItemDraft((draft) => ({
+                    ...draft,
+                    link: sanitizeItemLinkInput(event.target.value),
+                  }))}
                   style={inputStyle(ui)}
-                  maxLength={240}
+                  maxLength={WISHLIST_FIELD_LIMITS.itemLink}
                   inputMode="url"
                   disabled={!access.canEdit}
                 />
               </label>
               <label style={fieldStyle}>
-                <span style={labelStyle(ui)}>Notes</span>
+                <span style={labelStyle(ui)}>{wl.notes}</span>
                 <textarea
                   value={itemDraft.description}
-                  onChange={(event) => setItemDraft((draft) => ({ ...draft, description: event.target.value }))}
+                  onChange={(event) => setItemDraft((draft) => ({
+                    ...draft,
+                    description: sanitizeItemDescriptionInput(event.target.value),
+                  }))}
                   style={textareaStyle(ui)}
-                  maxLength={360}
+                  maxLength={WISHLIST_FIELD_LIMITS.itemDescription}
                   disabled={!access.canEdit}
                 />
               </label>
-              <button
+              <ActionButton
+                ui={ui}
                 type="submit"
-                disabled={busyAction !== null || !access.canEdit || itemDraft.title.trim().length === 0}
+                disabled={
+                  !access.canEdit
+                  || itemDraft.title.trim().length === 0
+                  || (busyAction !== null && busyAction !== 'add-item')
+                }
+                busy={busyAction === 'add-item'}
+                busyLabel={wl.adding}
                 style={{ ...primaryButtonStyle(ui), gridColumn: '1 / -1' }}
               >
-                {busyAction === 'add-item' ? 'Adding...' : 'Add gift'}
-              </button>
+                {wl.addGift}
+              </ActionButton>
             </form>
 
             {!access.canEdit && (
               <div style={noticeStyle(ui)}>
-                This share link can select gifts. Use the edit link from the wishlist owner to change names, links, or descriptions.
+                {wl.editLinkNotice}
               </div>
             )}
 
@@ -671,10 +1142,146 @@ export default function WishlistPage() {
         )}
 
         <button type="button" onClick={handleBackToMenu} style={backButtonStyle(ui)}>
-          Back to main page
+          {wl.backToMain}
         </button>
       </section>
     </main>
+  )
+}
+
+function WishlistTitleBlock({
+  ui,
+  wishlist,
+  heading,
+}: {
+  ui: WishlistUi
+  wishlist: Wishlist
+  heading?: string
+}) {
+  return (
+    <div style={wishlistTitleBlockStyle}>
+      {wishlist.logo ? (
+        <img src={wishlist.logo} alt="" style={logoInlinePreviewStyle(ui)} />
+      ) : null}
+      <div style={wishlistTitleCopyStyle}>
+        {heading ? <div style={formHeadingStyle(ui)}>{heading}</div> : null}
+        <h2 style={sharedListTitleStyle(ui)}>{wishlist.name}</h2>
+      </div>
+    </div>
+  )
+}
+
+function ShareLinkPanel({
+  ui,
+  shareUrl,
+  wishlistName,
+  onCopy,
+  onDownload,
+  copyLabel,
+  copyBusy = false,
+  compact = false,
+}: {
+  ui: WishlistUi
+  shareUrl: string
+  wishlistName: string
+  onCopy: () => void
+  onDownload: () => void
+  copyLabel: string
+  copyBusy?: boolean
+  compact?: boolean
+}) {
+  const { messages } = useTranslation()
+  const wl = messages.wishlist
+  const c = messages.common
+
+  if (!shareUrl) return null
+
+  return (
+    <section style={sharePanelStyle(ui, compact)} aria-label={wl.shareAriaLabel}>
+      <ShareQrCode
+        value={shareUrl}
+        ui={ui}
+        wishlistName={wishlistName}
+        onDownload={onDownload}
+      />
+      <div style={shareDetailsStyle}>
+        <div style={formHeadingStyle(ui)}>{wl.shareThisList}</div>
+        <div style={shareRowStyle}>
+          <a href={shareUrl} target="_blank" rel="noreferrer" style={shareTextStyle(ui)}>
+            {shareUrl}
+          </a>
+          <ActionButton
+            ui={ui}
+            type="button"
+            onClick={onCopy}
+            busy={copyBusy}
+            busyLabel={c.copying}
+            style={secondaryButtonStyle(ui)}
+          >
+            {copyLabel}
+          </ActionButton>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ShareQrCode({
+  value,
+  ui,
+  wishlistName,
+  onDownload,
+}: {
+  value: string
+  ui: WishlistUi
+  wishlistName: string
+  onDownload: () => void
+}) {
+  const qrRef = useRef<HTMLDivElement>(null)
+  const [downloadBusy, setDownloadBusy] = useState(false)
+  const { messages } = useTranslation()
+  const wl = messages.wishlist
+  const c = messages.common
+
+  async function handleDownload() {
+    const svg = qrRef.current?.querySelector('svg')
+    if (!svg || downloadBusy) return
+
+    setDownloadBusy(true)
+    try {
+      await downloadQrCodePng(svg, createQrFilename(wishlistName))
+      onDownload()
+    } finally {
+      setDownloadBusy(false)
+    }
+  }
+
+  return (
+    <div style={qrWrapStyle(ui)}>
+      <a href={value} target="_blank" rel="noreferrer" style={qrLinkStyle} aria-label={wl.openSharedAriaLabel}>
+        <div ref={qrRef} style={qrCanvasStyle}>
+          <QRCode
+            value={value}
+            size={128}
+            bgColor="#ffffff"
+            fgColor="#0a0f18"
+            level="M"
+            style={qrCodeStyle}
+          />
+        </div>
+      </a>
+      <span style={qrCaptionStyle(ui)}>{wl.scanOrTap}</span>
+      <ActionButton
+        ui={ui}
+        type="button"
+        onClick={() => void handleDownload()}
+        busy={downloadBusy}
+        busyLabel={c.downloading}
+        style={qrDownloadButtonStyle(ui)}
+      >
+        {wl.downloadQr}
+      </ActionButton>
+    </div>
   )
 }
 
@@ -700,6 +1307,9 @@ function WishlistItemCard({
   onRelease: () => void
 }) {
   const [editing, setEditing] = useState(false)
+  const { messages, t } = useTranslation()
+  const wl = messages.wishlist
+  const c = messages.common
   const [draft, setDraft] = useState(() => ({
     title: item.title,
     link: item.link,
@@ -713,7 +1323,7 @@ function WishlistItemCard({
     busyAction === `delete-${item.id}` ||
     busyAction === `release-${item.id}` ||
     busyAction === `edit-${item.id}`
-  const href = normalizeExternalLink(item.link)
+  const href = hasDisplayableItemLink(item.link) ? normalizeExternalUrl(item.link) : ''
 
   useEffect(() => {
     if (!editing) {
@@ -737,124 +1347,217 @@ function WishlistItemCard({
           style={editItemFormStyle}
         >
           <label style={fieldStyle}>
-            <span style={labelStyle(ui)}>Item name</span>
+            <span style={labelStyle(ui)}>{wl.itemName}</span>
             <input
               value={draft.title}
-              onChange={(event) => setDraft((next) => ({ ...next, title: event.target.value }))}
+              onChange={(event) => setDraft((next) => ({
+                ...next,
+                title: sanitizeItemTitleInput(event.target.value),
+              }))}
               style={inputStyle(ui)}
-              maxLength={90}
+              maxLength={WISHLIST_FIELD_LIMITS.itemTitle}
               required
             />
           </label>
           <label style={fieldStyle}>
-            <span style={labelStyle(ui)}>Product link</span>
+            <span style={labelStyle(ui)}>{wl.productLink}</span>
             <input
               value={draft.link}
-              onChange={(event) => setDraft((next) => ({ ...next, link: event.target.value }))}
+              onChange={(event) => setDraft((next) => ({
+                ...next,
+                link: sanitizeItemLinkInput(event.target.value),
+              }))}
               style={inputStyle(ui)}
-              maxLength={240}
+              maxLength={WISHLIST_FIELD_LIMITS.itemLink}
               inputMode="url"
             />
           </label>
           <label style={fieldStyle}>
-            <span style={labelStyle(ui)}>Notes</span>
+            <span style={labelStyle(ui)}>{wl.notes}</span>
             <textarea
               value={draft.description}
-              onChange={(event) => setDraft((next) => ({ ...next, description: event.target.value }))}
+              onChange={(event) => setDraft((next) => ({
+                ...next,
+                description: sanitizeItemDescriptionInput(event.target.value),
+              }))}
               style={textareaStyle(ui)}
-              maxLength={360}
+              maxLength={WISHLIST_FIELD_LIMITS.itemDescription}
             />
           </label>
           <div style={itemActionRowStyle}>
-            <button
+            <ActionButton
+              ui={ui}
               type="submit"
               disabled={busy || draft.title.trim().length === 0}
+              busy={busyAction === `edit-${item.id}`}
+              busyLabel={c.saving}
               style={primaryButtonStyle(ui)}
             >
-              {busy ? 'Saving...' : 'Save gift'}
-            </button>
-            <button
+              {wl.saveGift}
+            </ActionButton>
+            <ActionButton
+              ui={ui}
               type="button"
               onClick={() => setEditing(false)}
+              disabled={busy}
               style={secondaryButtonStyle(ui)}
             >
-              Cancel
-            </button>
+              {c.cancel}
+            </ActionButton>
           </div>
         </form>
       ) : (
         <>
-          <div style={itemCardTopStyle}>
-            <h2 style={itemTitleStyle(ui, selectedByOther)}>{item.title}</h2>
-            <span style={pillStyle(item.selectedBy ? ui.warning : ui.accent)}>
-              {item.selectedBy ? 'Selected' : 'Open'}
-            </span>
-          </div>
-          {item.description && <p style={itemDescriptionStyle(ui, selectedByOther)}>{item.description}</p>}
-          {href && (
-            <a href={href} target="_blank" rel="noreferrer" style={itemLinkStyle(ui, selectedByOther)}>
-              Open link
-            </a>
-          )}
-          {canEdit && (
-            <div style={itemActionRowStyle}>
-              <button type="button" onClick={() => setEditing(true)} style={secondaryButtonStyle(ui)}>
-                Edit
-              </button>
-              <button type="button" onClick={onDelete} disabled={busy} style={dangerButtonStyle(ui)}>
-                {busyAction === `delete-${item.id}` ? 'Removing...' : 'Remove'}
-              </button>
+          <div>
+            {canEdit && (
+              <div style={itemIconToolbarStyle}>
+                <IconActionButton
+                  ui={ui}
+                  label={wl.edit}
+                  onClick={() => setEditing(true)}
+                  disabled={busy}
+                >
+                  <EditIcon />
+                </IconActionButton>
+                <IconActionButton
+                  ui={ui}
+                  label={wl.remove}
+                  tone="danger"
+                  onClick={onDelete}
+                  disabled={busy}
+                  busy={busyAction === `delete-${item.id}`}
+                  busyLabel={wl.removing}
+                >
+                  <TrashIcon />
+                </IconActionButton>
+              </div>
+            )}
+            <div style={itemCardTopStyle}>
+              <h2 style={itemTitleStyle(ui, selectedByOther)}>{item.title}</h2>
+              <div style={itemCardHeaderActionsStyle}>
+              <span style={pillStyle(item.selectedBy ? ui.warning : ui.accent)}>
+                {item.selectedBy ? wl.itemSelected : wl.itemOpen}
+              </span>
+              </div>
             </div>
-          )}
+
+            {href ? (
+              <a href={href} target="_blank" rel="noreferrer" style={itemLinkStyle(ui, selectedByOther)}>
+                {wl.openLink}
+              </a>
+            ) : null}
+          </div>
+
+          {item.description ? (
+            <ExpandableDescription text={item.description} ui={ui} muted={selectedByOther} />
+          ) : null}
         </>
       )}
-      {item.selectedBy && (
-        <div style={selectedByStyle(ui)}>
-          Selected by {item.selectedBy}
-        </div>
-      )}
-      {selectedByMe ? (
-        <button type="button" onClick={onRelease} disabled={busy} style={secondaryButtonStyle(ui)}>
-          {busy ? 'Updating...' : 'Release'}
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onClaim}
-          disabled={busy || selectedByOther}
-          style={selectedByOther ? disabledButtonStyle(ui) : primaryButtonStyle(ui)}
-        >
-          {selectedByOther ? 'Selected' : busy ? 'Selecting...' : 'Select'}
-        </button>
-      )}
+      <div>
+        {item.selectedBy && (
+          <div style={selectedByStyle(ui)}>
+            {t(wl.selectedBy, { name: item.selectedBy })}
+          </div>
+        )}
+        {selectedByMe ? (
+          <ActionButton
+            ui={ui}
+            type="button"
+            onClick={onRelease}
+            disabled={busy}
+            busy={busyAction === `release-${item.id}`}
+            busyLabel={c.updating}
+            style={secondaryButtonStyle(ui)}
+          >
+            {wl.release}
+          </ActionButton>
+        ) : (
+          <ActionButton
+            ui={ui}
+            type="button"
+            onClick={onClaim}
+            disabled={busy || selectedByOther}
+            busy={busyAction === `claim-${item.id}`}
+            busyLabel={wl.selecting}
+            style={selectedByOther ? disabledButtonStyle(ui) : primaryButtonStyle(ui)}
+          >
+            {selectedByOther ? wl.itemSelected : wl.select}
+          </ActionButton>
+        )}
+      </div>
+
     </article>
   )
 }
 
-function createEmptyItemDraft(wishlist: Wishlist): { title: string; link: string; description: string } {
+function createEmptyItemDraft(
+  wishlist: Wishlist,
+  wl: Messages['wishlist'],
+): { title: string; link: string; description: string } {
   return {
-    title: `Item ${wishlist.items.length + 1}`,
+    title: formatMessage(wl.defaultItemTitle, { n: wishlist.items.length + 1 }),
     link: '',
     description: '',
   }
 }
 
-function normalizeExternalLink(link: string): string {
-  const trimmed = link.trim()
-  if (!trimmed) return ''
+function createQrFilename(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return `${slug || 'wishlist'}-qr.png`
+}
+
+async function downloadQrCodePng(svg: SVGSVGElement, filename: string): Promise<void> {
+  const svgString = new XMLSerializer().serializeToString(svg)
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+  const svgUrl = URL.createObjectURL(svgBlob)
 
   try {
-    return new URL(trimmed).toString()
-  } catch {
-    try {
-      return new URL(`https://${trimmed}`).toString()
-    } catch {
-      return ''
-    }
+    await new Promise<void>((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 512
+        canvas.height = 512
+        const context = canvas.getContext('2d')
+
+        if (!context) {
+          reject(new Error('Could not create QR download'))
+          return
+        }
+
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, canvas.width, canvas.height)
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Could not create QR download'))
+            return
+          }
+
+          const pngUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = pngUrl
+          link.download = filename
+          link.click()
+          URL.revokeObjectURL(pngUrl)
+          resolve()
+        }, 'image/png')
+      }
+      image.onerror = () => reject(new Error('Could not create QR download'))
+      image.src = svgUrl
+    })
+  } finally {
+    URL.revokeObjectURL(svgUrl)
   }
 }
 
-const pageStyle: CSSProperties = {
+const pageStyle = (ui: WishlistUi): CSSProperties => ({
   position: 'absolute',
   inset: 0,
   width: '100%',
@@ -868,9 +1571,9 @@ const pageStyle: CSSProperties = {
   alignItems: 'flex-start',
   justifyContent: 'center',
   padding: '1.2rem 0.85rem 2.4rem',
-  background: WISHLIST_UI.appBackground,
-  color: WISHLIST_UI.text,
-}
+  background: ui.appBackground,
+  color: ui.text,
+})
 
 function panelStyle(ui: WishlistUi): CSSProperties {
   return {
@@ -887,6 +1590,139 @@ function panelStyle(ui: WishlistUi): CSSProperties {
     background: ui.panelBackground,
     boxShadow: ui.panelShadow,
     fontFamily: relaxedFontStack,
+  }
+}
+
+const headerTopRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.85rem',
+  width: '100%',
+}
+
+const headerCopyStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.35rem',
+  minWidth: 0,
+}
+
+const wishlistTitleBlockStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.85rem',
+  minWidth: 0,
+}
+
+const wishlistTitleCopyStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.35rem',
+  minWidth: 0,
+}
+
+function logoPreviewStyle(ui: WishlistUi): CSSProperties {
+  return {
+    width: 56,
+    height: 56,
+    objectFit: 'cover',
+    borderRadius: 14,
+    border: `1px solid ${ui.subtleBorder}`,
+    background: ui.controlBg,
+    flexShrink: 0,
+  }
+}
+
+function logoInlinePreviewStyle(ui: WishlistUi): CSSProperties {
+  return {
+    width: 64,
+    height: 64,
+    objectFit: 'cover',
+    borderRadius: 16,
+    border: `1px solid ${ui.subtleBorder}`,
+    background: ui.controlBg,
+    flexShrink: 0,
+  }
+}
+
+function logoEditorPreviewStyle(ui: WishlistUi): CSSProperties {
+  return {
+    width: 88,
+    height: 88,
+    objectFit: 'cover',
+    borderRadius: 18,
+    border: `1px solid ${ui.subtleBorder}`,
+    background: ui.controlBg,
+    flexShrink: 0,
+  }
+}
+
+function logoPlaceholderStyle(ui: WishlistUi): CSSProperties {
+  return {
+    width: 88,
+    height: 88,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    border: `1px dashed ${ui.subtleBorder}`,
+    background: ui.selectorBackground,
+    color: ui.muted,
+    fontSize: '1.6rem',
+    flexShrink: 0,
+  }
+}
+
+function logoPanelStyle(ui: WishlistUi): CSSProperties {
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+    padding: '1rem',
+    border: `1px solid ${ui.subtleBorder}`,
+    borderRadius: 14,
+    background: ui.selectorBackground,
+  }
+}
+
+const logoPanelRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: '1rem',
+  alignItems: 'flex-start',
+  flexWrap: 'wrap',
+}
+
+const logoPanelActionsStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.55rem',
+  flex: '1 1 220px',
+  minWidth: 0,
+}
+
+const logoButtonRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: '0.55rem',
+  flexWrap: 'wrap',
+}
+
+function fieldShellStyle(locked: boolean): CSSProperties {
+  return locked ? { opacity: 0.7 } : {}
+}
+
+function lockedInputStyle(ui: WishlistUi, locked: boolean): CSSProperties {
+  return {
+    ...inputStyle(ui),
+    cursor: locked ? 'not-allowed' : 'text',
+  }
+}
+
+function helperTextStyle(ui: WishlistUi): CSSProperties {
+  return {
+    margin: 0,
+    color: ui.muted,
+    fontSize: '0.82rem',
+    lineHeight: 1.5,
   }
 }
 
@@ -977,16 +1813,95 @@ function textareaStyle(ui: WishlistUi): CSSProperties {
   }
 }
 
-function shareRowStyle(ui: WishlistUi): CSSProperties {
+function editLinkPanelStyle(ui: WishlistUi): CSSProperties {
   return {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
-    gap: '0.7rem',
-    alignItems: 'center',
-    padding: '0.8rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+    padding: '1rem',
     border: `1px solid ${ui.subtleBorder}`,
-    borderRadius: 12,
+    borderRadius: 14,
     background: ui.selectorBackground,
+  }
+}
+
+function sharePanelStyle(ui: WishlistUi, compact = false): CSSProperties {
+  return {
+    display: 'flex',
+    gap: '1rem',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    padding: compact ? '0.85rem' : '1rem',
+    border: `1px solid ${ui.subtleBorder}`,
+    borderRadius: 14,
+    background: ui.selectorBackground,
+    width: compact ? '100%' : undefined,
+  }
+}
+
+const shareDetailsStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.75rem',
+  flex: '1 1 220px',
+  minWidth: 0,
+}
+
+const shareRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
+  gap: '0.7rem',
+  alignItems: 'center',
+}
+
+const qrCanvasStyle: CSSProperties = {
+  display: 'block',
+  lineHeight: 0,
+}
+
+const qrLinkStyle: CSSProperties = {
+  display: 'block',
+  lineHeight: 0,
+  borderRadius: 8,
+  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+}
+
+function qrDownloadButtonStyle(ui: WishlistUi): CSSProperties {
+  return {
+    ...secondaryButtonStyle(ui),
+    minHeight: 36,
+    padding: '0.45rem 0.7rem',
+    fontSize: '0.5rem',
+  }
+}
+
+function qrWrapStyle(ui: WishlistUi): CSSProperties {
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.45rem',
+    padding: '0.65rem',
+    borderRadius: 12,
+    background: '#ffffff',
+    border: `1px solid ${ui.subtleBorder}`,
+    flexShrink: 0,
+  }
+}
+
+const qrCodeStyle: CSSProperties = {
+  display: 'block',
+  width: 128,
+  height: 128,
+}
+
+function qrCaptionStyle(ui: WishlistUi): CSSProperties {
+  return {
+    color: ui.muted,
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
   }
 }
 
@@ -998,15 +1913,16 @@ function shareTextStyle(ui: WishlistUi): CSSProperties {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    textDecoration: 'none',
   }
 }
 
 function addFormStyle(ui: WishlistUi): CSSProperties {
   return {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(270px, 100%), 1fr))',
     gap: '0.8rem',
-    alignItems: 'end',
+    alignItems: 'start',
     padding: '1rem',
     border: `1px solid ${ui.subtleBorder}`,
     borderRadius: 14,
@@ -1146,10 +2062,12 @@ function itemCardStyle(
   locked: boolean,
 ): CSSProperties {
   return {
+    position: 'relative',
     display: 'flex',
+    justifyContent: 'space-between',
     flexDirection: 'column',
     gap: '0.75rem',
-    minHeight: 230,
+    minHeight: 170,
     padding: '1rem',
     border: `1px solid ${locked ? alpha(ui.warning, 0.48) : ui.subtleBorder}`,
     borderRadius: 14,
@@ -1168,6 +2086,56 @@ const itemCardTopStyle: CSSProperties = {
   gap: '0.7rem',
 }
 
+const itemCardHeaderActionsStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: '0.55rem',
+  flexShrink: 0,
+  marginLeft: 'auto',
+}
+
+const itemIconToolbarStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: '0.35rem',
+  position: 'absolute',
+  top: '-.70rem',
+  right: '-.70rem',
+}
+
+function logoHomeButtonStyle(): CSSProperties {
+  return {
+    border: 'none',
+    background: 'transparent',
+    padding: 0,
+    cursor: 'pointer',
+    flexShrink: 0,
+    lineHeight: 0,
+    borderRadius: 14,
+  }
+}
+
+function iconActionButtonStyle(
+  ui: WishlistUi,
+  tone: 'neutral' | 'danger',
+): CSSProperties {
+  return {
+    width: 24,
+    height: 24,
+    minHeight: 24,
+    padding: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 50,
+    border: `1px solid ${tone === 'danger' ? alpha(ui.danger, 0.42) : alpha(ui.secondary, 0.34)}`,
+    background: alpha(ui.controlBg, 0.82),
+    color: tone === 'danger' ? ui.danger : ui.secondary,
+  }
+}
+
 function itemTitleStyle(ui: WishlistUi, locked: boolean): CSSProperties {
   return {
     color: ui.text,
@@ -1175,6 +2143,8 @@ function itemTitleStyle(ui: WishlistUi, locked: boolean): CSSProperties {
     fontSize: '0.64rem',
     lineHeight: 1.7,
     margin: 0,
+    flex: 1,
+    minWidth: 0,
     overflowWrap: 'anywhere',
     textDecoration: locked ? 'line-through' : 'none',
     textDecorationThickness: locked ? 2 : undefined,
@@ -1190,8 +2160,36 @@ function itemDescriptionStyle(ui: WishlistUi, locked: boolean): CSSProperties {
     lineHeight: 1.45,
     overflowWrap: 'anywhere',
     flexGrow: 1,
+    margin: 0,
     textDecoration: locked ? 'line-through' : 'none',
     opacity: locked ? 0.72 : 1,
+  }
+}
+
+const descriptionBlockStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: '0.35rem',
+}
+
+const descriptionClampStyle: CSSProperties = {
+  display: '-webkit-box',
+  WebkitLineClamp: 3,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+}
+
+function descriptionToggleStyle(ui: WishlistUi): CSSProperties {
+  return {
+    background: 'transparent',
+    border: 'none',
+    color: ui.secondary,
+    cursor: 'pointer',
+    fontFamily: relaxedFontStack,
+    fontSize: '0.88rem',
+    fontWeight: 700,
+    padding: 0,
   }
 }
 

@@ -1,10 +1,20 @@
 import type { Wishlist, WishlistAccess, WishlistItem } from '@/types'
+import { getCurrentMessages } from '@/hooks/useTranslation'
+import { normalizeWishlistLogoDataUrl } from '@/services/wishlistLogo'
+import {
+  finalizeParticipantName,
+  finalizeWishlistName,
+  sanitizeWishlistItemInput,
+} from '@/services/wishlistFields'
 
 const LISTS_KEY = 'coop-tiny-team-wishlists'
 const ACTIVE_LIST_KEY = 'coop-tiny-team-active-wishlist'
 const PARTICIPANT_KEY = 'coop-tiny-team-wishlist-participant'
 const EDIT_TOKENS_KEY = 'coop-tiny-team-wishlist-edit-tokens'
-const DEFAULT_WISHLIST_NAME = 'Family Gift Wishlist'
+
+function getDefaultWishlistName(): string {
+  return getCurrentMessages().wishlist.defaultName
+}
 
 type WishlistRecord = Record<string, Wishlist>
 type WishlistEditTokens = Record<string, string>
@@ -62,7 +72,7 @@ export function saveParticipantName(name: string): void {
   if (typeof window === 'undefined') return
 
   try {
-    window.localStorage.setItem(PARTICIPANT_KEY, name.trim())
+    window.localStorage.setItem(PARTICIPANT_KEY, finalizeParticipantName(name))
   } catch {
     // ignore storage failures and keep the in-memory value
   }
@@ -195,6 +205,37 @@ export async function deleteWishlist(wishlist: Wishlist, access: WishlistAccess)
   return false
 }
 
+export async function updateWishlistLogo(
+  wishlist: Wishlist,
+  logo: string | null,
+  access: WishlistAccess,
+): Promise<WishlistResult> {
+  const normalizedLogo = logo === null ? null : normalizeWishlistLogoDataUrl(logo)
+  const updated = {
+    ...wishlist,
+    logo: normalizedLogo,
+    updatedAt: new Date().toISOString(),
+  }
+
+  const cloudWishlist = await patchCloudWishlist(
+    updated.id,
+    { logo: normalizedLogo },
+    access.editToken,
+  )
+  if (cloudWishlist) {
+    rememberEditAccess(updated.id, access)
+    saveLocalWishlist(cloudWishlist)
+    return { wishlist: cloudWishlist, mode: 'cloud', access }
+  }
+
+  if (!canEditLocally(wishlist.id, access)) {
+    return { wishlist, mode: 'local', access }
+  }
+
+  saveLocalWishlist(updated)
+  return { wishlist: updated, mode: 'local', access }
+}
+
 export async function renameWishlist(
   wishlist: Wishlist,
   name: string,
@@ -227,11 +268,12 @@ export async function addWishlistItem(
   access: WishlistAccess,
 ): Promise<WishlistResult> {
   const now = new Date().toISOString()
+  const sanitized = sanitizeWishlistItemInput(input)
   const item: WishlistItem = {
     id: createId('gift'),
-    title: input.title.trim(),
-    link: input.link.trim(),
-    description: input.description.trim(),
+    title: sanitized.title,
+    link: sanitized.link,
+    description: sanitized.description,
     selectedBy: null,
     createdAt: now,
     updatedAt: now,
@@ -264,15 +306,16 @@ export async function updateWishlistItem(
   access: WishlistAccess,
 ): Promise<WishlistResult> {
   const now = new Date().toISOString()
+  const sanitized = sanitizeWishlistItemInput(input)
   const updated = {
     ...wishlist,
     items: wishlist.items.map((item) => (
       item.id === itemId
         ? {
           ...item,
-          title: input.title.trim(),
-          link: input.link.trim(),
-          description: input.description.trim(),
+          title: sanitized.title,
+          link: sanitized.link,
+          description: sanitized.description,
           updatedAt: now,
         }
         : item
@@ -395,7 +438,8 @@ function createWishlist(): Wishlist {
   const now = new Date().toISOString()
   return {
     id: createId('wish'),
-    name: DEFAULT_WISHLIST_NAME,
+    name: getDefaultWishlistName(),
+    logo: null,
     items: [],
     createdAt: now,
     updatedAt: now,
@@ -411,12 +455,11 @@ function createId(prefix: string): string {
 }
 
 function normalizeWishlistName(name: string): string {
-  const trimmed = name.trim()
-  return trimmed.length > 0 ? trimmed : DEFAULT_WISHLIST_NAME
+  return finalizeWishlistName(name, getDefaultWishlistName())
 }
 
 function normalizeParticipantName(name: string): string {
-  return name.trim() || 'Guest'
+  return finalizeParticipantName(name)
 }
 
 function getStoredEditTokens(): WishlistEditTokens {
@@ -553,7 +596,7 @@ async function saveCloudWishlist(wishlist: Wishlist, editToken: string): Promise
 
 async function patchCloudWishlist(
   wishlistId: string,
-  patch: { name: string },
+  patch: { name?: string; logo?: string | null },
   editToken: string | null,
 ): Promise<Wishlist | null> {
   const response = await apiRequest<WishlistApiResponse>(`/api/wishlists/${encodeURIComponent(wishlistId)}`, {

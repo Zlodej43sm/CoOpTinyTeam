@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import { LEVELS } from '@/game/config/levels'
-import { getThemeDefinition } from '@/game/config/theme'
+import type { ThemeUi } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
 import { trackControlUsed, trackGameStarted, trackNavigationClick } from '@/analytics/events'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useResolvedColorScheme } from '@/hooks/useResolvedColorScheme'
+import { getControlButtonTextColor } from '@/game/config/theme'
+import { isCoarsePointerDevice } from '@/game/utils/touch'
+import { useTranslation } from '@/hooks/useTranslation'
 import { rem } from '@/ui/typography'
 
 type GameControlsProps = {
@@ -20,7 +25,6 @@ export default function GameControls({
     () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
   )
   const phase = useGameStore((s) => s.phase)
-  const theme = useGameStore((s) => s.theme)
   const soundEnabled = useGameStore((s) => s.soundEnabled)
   const paused = useGameStore((s) => s.paused)
   const level = useGameStore((s) => s.level)
@@ -33,7 +37,12 @@ export default function GameControls({
   const supportsFullscreen =
     typeof document !== 'undefined' &&
     typeof document.documentElement?.requestFullscreen === 'function'
-  const { ui } = getThemeDefinition(theme)
+  const { ui } = useThemeDefinition()
+  const colorScheme = useResolvedColorScheme()
+  const { messages } = useTranslation()
+  const c = messages.common
+  const ctrl = messages.controls
+  const touchFriendly = isCoarsePointerDevice()
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
@@ -118,12 +127,14 @@ export default function GameControls({
           setSoundEnabled(nextEnabled)
         }}
         style={{
-          ...buttonStyle(compact, ui),
+          ...buttonStyle(compact, ui, touchFriendly),
           borderColor: soundEnabled ? ui.warning : ui.inactiveButtonBorder,
-          color: soundEnabled ? '#fff0c2' : ui.inactiveButtonColor,
+          color: soundEnabled
+            ? getControlButtonTextColor(ui, colorScheme, 'warning')
+            : ui.inactiveButtonColor,
         }}
       >
-        {soundEnabled ? 'SOUND ON' : 'SOUND OFF'}
+        {soundEnabled ? ctrl.soundOn : ctrl.soundOff}
       </button>
       {supportsFullscreen && (
         <button
@@ -132,9 +143,13 @@ export default function GameControls({
           onClick={() => {
             void handleFullscreenToggle()
           }}
-          style={{ ...buttonStyle(compact, ui), borderColor: ui.warning, color: '#fff0c2' }}
+          style={{
+            ...buttonStyle(compact, ui, touchFriendly),
+            borderColor: ui.warning,
+            color: getControlButtonTextColor(ui, colorScheme, 'warning'),
+          }}
         >
-          {isFullscreen ? 'WINDOW' : 'FULLSCREEN'}
+          {isFullscreen ? ctrl.windowed : ctrl.fullscreen}
         </button>
       )}
       <button
@@ -145,25 +160,37 @@ export default function GameControls({
           trackControlUsed({ control: 'pause', source: surface, enabled: nextPaused })
           setPaused(nextPaused)
         }}
-        style={{ ...buttonStyle(compact, ui), borderColor: ui.secondary, color: '#d7eeff' }}
+        style={{
+          ...buttonStyle(compact, ui, touchFriendly),
+          borderColor: ui.secondary,
+          color: getControlButtonTextColor(ui, colorScheme, 'secondary'),
+        }}
       >
-        {paused ? 'RESUME' : 'PAUSE'}
+        {paused ? ctrl.resume : ctrl.pause}
       </button>
       <button
         type="button"
         data-no-global-tap="true"
         onClick={handleReplay}
-        style={{ ...buttonStyle(compact, ui), borderColor: ui.accent, color: '#d7ffd0' }}
+        style={{
+          ...buttonStyle(compact, ui, touchFriendly),
+          borderColor: ui.accent,
+          color: getControlButtonTextColor(ui, colorScheme, 'accent'),
+        }}
       >
-        REPLAY
+        {c.replay}
       </button>
       <button
         type="button"
         data-no-global-tap="true"
         onClick={handleExit}
-        style={{ ...buttonStyle(compact, ui), borderColor: ui.danger, color: '#ffd8dc' }}
+        style={{
+          ...buttonStyle(compact, ui, touchFriendly),
+          borderColor: ui.danger,
+          color: getControlButtonTextColor(ui, colorScheme, 'danger'),
+        }}
       >
-        EXIT
+        {c.exit}
       </button>
     </div>
   )
@@ -171,12 +198,17 @@ export default function GameControls({
 
 function buttonStyle(
   compact: boolean,
-  ui: ReturnType<typeof getThemeDefinition>['ui'],
+  ui: ThemeUi,
+  touchFriendly: boolean,
 ): React.CSSProperties {
+  const minTouch = touchFriendly ? 44 : undefined
+
   return {
     background: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, ${ui.controlBg} 100%)`,
     border: '2px solid',
     padding: compact ? '0.38rem 0.55rem' : '0.7rem 1rem',
+    minHeight: minTouch,
+    minWidth: minTouch,
     fontSize: compact ? rem(0.34) : rem(0.48),
     fontFamily: '"Press Start 2P", monospace',
     cursor: 'pointer',

@@ -1,9 +1,14 @@
 import { create } from 'zustand'
-import type { GamePhase, GameTheme, PlayerAction } from '@/types'
+import { getStoredColorSchemePreference, saveColorSchemePreference } from '@/services/colorScheme'
+import { getStoredLocale, saveLocale } from '@/services/locale'
+import type { AppLocale } from '@/i18n/types'
+import type { GamePhase, GameTheme, PlayerAction, ColorSchemePreference } from '@/types'
 
 interface GameState {
   phase: GamePhase
   theme: GameTheme
+  locale: AppLocale
+  colorSchemePreference: ColorSchemePreference
   score: number
   level: number
   lives: number
@@ -19,6 +24,8 @@ interface GameState {
 
   setPhase: (phase: GamePhase) => void
   setTheme: (theme: GameTheme) => void
+  setLocale: (locale: AppLocale) => void
+  setColorSchemePreference: (preference: ColorSchemePreference) => void
   addScore: (pts: number) => void
   setLevel: (level: number) => void
   setLives: (lives: number) => void
@@ -88,6 +95,8 @@ function persistTheme(theme: GameTheme): void {
 export const useGameStore = create<GameState>((set) => ({
   phase: 'hub',
   theme: readInitialTheme(),
+  locale: getStoredLocale(),
+  colorSchemePreference: getStoredColorSchemePreference(),
   score: 0,
   level: 1,
   lives: DEFAULT_LIVES,
@@ -105,6 +114,14 @@ export const useGameStore = create<GameState>((set) => ({
   setTheme: (theme) => {
     persistTheme(theme)
     set({ theme })
+  },
+  setColorSchemePreference: (colorSchemePreference) => {
+    saveColorSchemePreference(colorSchemePreference)
+    set({ colorSchemePreference })
+  },
+  setLocale: (locale) => {
+    saveLocale(locale)
+    set({ locale })
   },
   addScore: (pts) => set((s) => ({ score: s.score + pts })),
   setLevel: (level) => set({ level }),
@@ -139,6 +156,8 @@ export const useGameStore = create<GameState>((set) => ({
     footerLevelProgress: 0,
     footerLevelGoal: 0,
     theme: state.theme,
+    locale: state.locale,
+    colorSchemePreference: state.colorSchemePreference,
     soundEnabled: state.soundEnabled,
     playerName: state.playerName || 'PLAYER',
   })),

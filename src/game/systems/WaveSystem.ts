@@ -88,6 +88,27 @@ export class WaveSystem {
     return matches
   }
 
+  pickTokenAt(x: number, y: number, maxDistance = 34): string | null {
+    let bestChar: string | null = null
+    let bestDistance = maxDistance
+
+    for (const wave of this.waves) {
+      for (const token of wave.visibleTokens()) {
+        const centerX = wave.position.x + token.position.x + TOKEN_W / 2
+        const centerY = wave.position.y + token.position.y + TOKEN_W / 2
+        const distance = Math.hypot(centerX - x, centerY - y)
+        const hitRadius = token.isActive ? Math.max(maxDistance + 8, 38) : maxDistance
+
+        if (distance <= hitRadius && distance < bestDistance) {
+          bestDistance = distance
+          bestChar = token.char
+        }
+      }
+    }
+
+    return bestChar
+  }
+
   handleKey(key: string): void {
     if (key.length === 1) {
       this.animateVisibleMatches(key)

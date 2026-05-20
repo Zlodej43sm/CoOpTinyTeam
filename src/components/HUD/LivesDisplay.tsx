@@ -1,15 +1,14 @@
-import { getThemeDefinition } from '@/game/config/theme'
 import { useGameStore } from '@/store/gameStore'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
 import { rem } from '@/ui/typography'
 
 export default function LivesDisplay() {
   const phase = useGameStore((s) => s.phase)
   const lives = useGameStore((s) => s.lives)
-  const theme = useGameStore((s) => s.theme)
 
   if (phase === 'kids-arcade') return null
 
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
 
   return (
     <div

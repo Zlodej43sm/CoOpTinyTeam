@@ -15,6 +15,15 @@ body {
   background: #0d0d0d;
   color: #e0e0e0;
   font-family: 'Press Start 2P', monospace;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+canvas {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .app {
@@ -26,4 +35,10 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+@keyframes wishlist-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

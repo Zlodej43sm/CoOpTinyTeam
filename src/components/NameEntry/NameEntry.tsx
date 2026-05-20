@@ -2,7 +2,9 @@ import { useGameStore } from '@/store/gameStore'
 import { trackPlayerNamed } from '@/analytics/events'
 import { saveScore } from '@/services/scores'
 import { LEVELS } from '@/game/config/levels'
-import { getThemeDefinition } from '@/game/config/theme'
+import { useThemeDefinition } from '@/hooks/useThemeDefinition'
+import { useTranslation } from '@/hooks/useTranslation'
+import type { ThemeUi } from '@/game/config/theme'
 import { rem } from '@/ui/typography'
 
 const MAX_NAME_LEN = 8
@@ -19,21 +21,22 @@ export default function NameEntry() {
   const score = useGameStore((s) => s.score)
   const level = useGameStore((s) => s.level)
   const lives = useGameStore((s) => s.lives)
-  const theme = useGameStore((s) => s.theme)
   const setPhase = useGameStore((s) => s.setPhase)
   const setPlayerName = useGameStore((s) => s.setPlayerName)
 
   const isVictory = lives > 0 && level >= LEVELS.length
-  const themeDef = getThemeDefinition(theme)
+  const themeDef = useThemeDefinition()
+  const { messages } = useTranslation()
   const { ui, copy } = themeDef
+  const c = messages.common
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const finalName = normalizeName(playerName) || 'PLAYER'
+    const finalName = normalizeName(playerName) || c.player
     setPlayerName(finalName)
     trackPlayerNamed({
       outcome: isVictory ? 'victory' : 'gameover',
-      usedDefaultName: finalName === 'PLAYER',
+      usedDefaultName: finalName === c.player,
       nameLength: finalName.length,
     })
     saveScore({ playerName: finalName, score, levelReached: level })
@@ -56,16 +59,16 @@ export default function NameEntry() {
         style={inputStyle(ui)}
       />
       <div style={{ fontSize: rem(0.42), color: ui.muted, lineHeight: 1.8 }}>
-        SCORE {score.toString().padStart(7, '0')} | {copy.levelWord} {level}
+        {c.score} {score.toString().padStart(7, '0')} | {copy.levelWord} {level}
       </div>
       <button type="submit" style={submitStyle(ui)}>
-        SAVE SCORE
+        {c.saveScore}
       </button>
     </form>
   )
 }
 
-function wrapperStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function wrapperStyle(ui: ThemeUi): React.CSSProperties {
   return {
     width: 'min(420px, 92vw)',
     display: 'flex',
@@ -82,7 +85,7 @@ function wrapperStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CS
   }
 }
 
-function inputStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function inputStyle(ui: ThemeUi): React.CSSProperties {
   return {
     width: '100%',
     padding: '0.9rem',
@@ -98,7 +101,7 @@ function inputStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSP
   }
 }
 
-function submitStyle(ui: ReturnType<typeof getThemeDefinition>['ui']): React.CSSProperties {
+function submitStyle(ui: ThemeUi): React.CSSProperties {
   return {
     background: `linear-gradient(180deg, ${ui.controlBg} 0%, rgba(255,255,255,0.04) 100%)`,
     border: `2px solid ${ui.secondary}`,

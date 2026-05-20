@@ -14,6 +14,9 @@ export type GamePhase =
 
 export type GameTheme = 'dev' | 'trading'
 
+export type ColorScheme = 'dark' | 'light'
+export type ColorSchemePreference = 'system' | ColorScheme
+
 export type PlayerAction = 'match' | 'miss' | 'any' | null
 
 export type StorageMode = 'local' | 'cloud'
@@ -50,6 +53,7 @@ export interface WishlistItem {
 export interface Wishlist {
   id: string
   name: string
+  logo?: string | null
   items: WishlistItem[]
   createdAt: string
   updatedAt: string
