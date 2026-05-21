@@ -52,3 +52,23 @@ canvas {
     background-position: -200% 0;
   }
 }
+
+.wishlist-item-title-link {
+  text-decoration-line: none;
+  text-underline-offset: 0.18em;
+}
+
+.wishlist-item-title-link--locked {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.wishlist-item-title-link:hover,
+.wishlist-item-title-link:focus-visible {
+  text-decoration-line: underline;
+}
+
+.wishlist-item-title-link--locked:hover,
+.wishlist-item-title-link--locked:focus-visible {
+  text-decoration-line: line-through underline;
+}

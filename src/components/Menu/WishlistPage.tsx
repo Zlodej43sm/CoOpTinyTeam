@@ -822,16 +822,6 @@ export default function WishlistPage() {
           <form onSubmit={handleEnterSharedList} style={sharedGateStyle(ui)}>
             <div style={formHeadingStyle(ui)}>{wl.openShared}</div>
             <WishlistTitleBlock ui={ui} wishlist={wishlist} />
-            <ShareLinkPanel
-              ui={ui}
-              shareUrl={shareUrl}
-              wishlistName={wishlist.name}
-              onCopy={handleCopyLink}
-              onDownload={() => setNotice(notices.qrDownloaded)}
-              copyLabel={wl.copyShareLink}
-              copyBusy={busyAction === 'copy-share'}
-              compact
-            />
             <label style={fieldStyle}>
               <span style={labelStyle(ui)}>{wl.yourName}</span>
               <input
@@ -876,16 +866,6 @@ export default function WishlistPage() {
                 )}
               </label>
             </section>
-
-            <ShareLinkPanel
-              ui={ui}
-              shareUrl={shareUrl}
-              wishlistName={wishlist.name}
-              onCopy={handleCopyLink}
-              onDownload={() => setNotice(notices.qrDownloaded)}
-              copyLabel={wl.copyShareLink}
-              copyBusy={busyAction === 'copy-share'}
-            />
 
             {notice && <div style={noticeStyle(ui)}>{notice}</div>}
 
@@ -1464,7 +1444,21 @@ function WishlistItemCard({
             </div>
 
             <div style={itemCardTopStyle}>
-              <h2 style={itemTitleStyle(ui, selectedByOther)} title={item.title}>{item.title}</h2>
+              <h2 style={itemTitleStyle(ui, selectedByOther)} title={item.title}>
+                {href ? (
+                  <a
+                    className={`wishlist-item-title-link${selectedByOther ? ' wishlist-item-title-link--locked' : ''}`}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={itemTitleTextStyle()}
+                  >
+                    {item.title}
+                  </a>
+                ) : (
+                  <span style={itemTitleTextStyle(selectedByOther)}>{item.title}</span>
+                )}
+              </h2>
             </div>
 
             {item.image ? (
@@ -2177,11 +2171,18 @@ function itemTitleStyle(ui: WishlistUi, locked: boolean): CSSProperties {
     flex: 1,
     minWidth: 0,
     overflowWrap: 'anywhere',
-    textDecoration: locked ? 'line-through' : 'none',
-    textDecorationThickness: locked ? 2 : undefined,
     opacity: locked ? 0.68 : 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+  }
+}
+
+function itemTitleTextStyle(locked = false): CSSProperties {
+  return {
+    color: 'inherit',
+    textDecorationLine: locked ? 'line-through' : 'none',
+    textDecorationThickness: locked ? 2 : undefined,
+    textUnderlineOffset: '0.18em',
   }
 }
 
