@@ -19,7 +19,7 @@
     "@supabase/supabase-js": "^2.47.2",
     "howler": "^2.2.4",
     "pixi.js": "^8.6.6",
-    "posthog-js": "^1.374.2",
+    "posthog-js": "^1.418.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-qr-code": "^2.0.21",
